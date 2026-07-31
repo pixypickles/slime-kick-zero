@@ -4,15 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#759b55">
-<title>スライム・キックオフ！ ほのぼの競技 試作版</title>
+<title>スライム・キック・ゼロ 試作版</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:none}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+canvas,#controls,#controls *{touch-action:none}
+.overlay,.card,.desc{touch-action:pan-y;overscroll-behavior:contain}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#24352b;color:#fff;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
 body{display:grid;place-items:center}
 #wrap{position:relative;width:min(100vw,calc(100vh*1.6667));height:min(100vh,calc(100vw*.6));max-width:1000px;max-height:600px;background:#91ba69;overflow:hidden;box-shadow:0 14px 50px #0009}
 canvas{display:block;width:100%;height:100%}
-.overlay{position:absolute;inset:0;display:grid;place-items:center;padding:20px;background:#183224d9;z-index:20}
-.card{width:min(760px,94%);max-height:94%;overflow:auto;text-align:center;padding:24px;border:3px solid #f4d88a;border-radius:24px;background:#294a36f2;box-shadow:0 12px 40px #0008}
+.overlay{position:absolute;inset:0;display:block;padding:20px;background:#183224d9;z-index:20;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.card{width:min(760px,94%);min-height:min-content;margin:auto;text-align:center;padding:24px;border:3px solid #f4d88a;border-radius:24px;background:#294a36f2;box-shadow:0 12px 40px #0008}
 h1{margin:0 0 5px;font-size:clamp(27px,5vw,50px);text-shadow:0 4px #0005}.sub{color:#ffeaa8;font-weight:900;margin-bottom:15px}.desc{line-height:1.7;text-align:left;margin:auto;max-width:650px}.desc b{color:#fff3a7}
 button{border:0;color:#fff;font-weight:900;box-shadow:inset 0 -5px #0003,0 5px 12px #0004;cursor:pointer}.start{margin-top:18px;padding:13px 38px;border-radius:18px;background:#e68a34;font-size:22px}.hidden{display:none!important}
 #hud{position:absolute;inset:0;pointer-events:none}.score{position:absolute;top:2%;left:50%;transform:translateX(-50%);padding:7px 18px;border-radius:999px;background:#183224dd;font-weight:1000;font-size:clamp(16px,2.7vw,26px);border:2px solid #fff8}.info{position:absolute;top:2%;left:2%;padding:7px 12px;border-radius:14px;background:#183224c9;font-size:clamp(10px,1.45vw,14px);line-height:1.45}.mood{position:absolute;top:2%;right:2%;padding:7px 12px;border-radius:14px;background:#183224c9;font-size:clamp(10px,1.45vw,14px)}
@@ -41,7 +43,7 @@ button{border:0;color:#fff;font-weight:900;box-shadow:inset 0 -5px #0003,0 5px 1
 </div>
 <div id="intro" class="overlay">
  <div class="card">
-  <h1>スライム・キックオフ！</h1>
+  <h1>スライム・キック・ゼロ</h1>
   <div class="sub">普通の人間たちの、ほのぼの誘導競技・試作版</div>
   <div class="desc">
    気まぐれに小ジャンプするスライムを、相手の村へ導いてください。人間同士はぶつからず、スライムだけに働きかけます。<br><br>
@@ -61,7 +63,7 @@ button{border:0;color:#fff;font-weight:900;box-shadow:inset 0 -5px #0003,0 5px 1
 (()=>{
 'use strict';
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
-const W=1000,H=600,FIELD={x:50,y:70,w:900,h:460};
+const W=1000,H=600,FIELD={x:55,y:65,w:890,h:470,cx:500,cy:300,rx:445,ry:235};
 const roles=[
  {name:'盾役',icon:'🛡️',speed:145,item:'リンゴ',color:'#f1c34d'},
  {name:'棒役',icon:'🪄',speed:165,item:'バケツ',color:'#e9824b'},
@@ -89,7 +91,9 @@ function aiControl(p,dt){if(p.disabled>0){p.vx=p.vy=0;movePlayer(p,dt);return;}c
  else if(p.role===1){if(d<92&&p.cool<=0&&Math.random()<.035)useA(p,true);p.vx=dx/d*roles[p.role].speed*.75;p.vy=dy/d*roles[p.role].speed*.75;}
  else {const offset=p.team===1?-95:95;tx=slime.x+offset;ty=slime.y;dx=tx-p.x;dy=ty-p.y;d=Math.hypot(dx,dy)||1;p.vx=dx/d*roles[p.role].speed*.7;p.vy=dy/d*roles[p.role].speed*.7;p.action=d<155;}
  if(Math.random()<.0018&&p.placeCool<=0)placeItem(p);movePlayer(p,dt);}
-function movePlayer(p,dt){p.cool=Math.max(0,p.cool-dt);p.placeCool=Math.max(0,p.placeCool-dt);p.disabled=Math.max(0,p.disabled-dt);p.x=clamp(p.x+p.vx*dt,FIELD.x+15,FIELD.x+FIELD.w-15);p.y=clamp(p.y+p.vy*dt,FIELD.y+15,FIELD.y+FIELD.h-15);for(const t of trees){const d=dist(p,t),min=t.r+14;if(d<min){const a=Math.atan2(p.y-t.y,p.x-t.x);p.x=t.x+Math.cos(a)*min;p.y=t.y+Math.sin(a)*min;}}}
+function movePlayer(p,dt){p.cool=Math.max(0,p.cool-dt);p.placeCool=Math.max(0,p.placeCool-dt);p.disabled=Math.max(0,p.disabled-dt);p.x+=p.vx*dt;p.y+=p.vy*dt;keepInsideEllipse(p,18);for(const t of trees){const d=dist(p,t),min=t.r+14;if(d<min){const a=Math.atan2(p.y-t.y,p.x-t.x);p.x=t.x+Math.cos(a)*min;p.y=t.y+Math.sin(a)*min;}}}
+function keepInsideEllipse(o,pad=0){const dx=o.x-FIELD.cx,dy=o.y-FIELD.cy,rx=FIELD.rx-pad,ry=FIELD.ry-pad,n=Math.sqrt((dx*dx)/(rx*rx)+(dy*dy)/(ry*ry));if(n>1){o.x=FIELD.cx+dx/n;o.y=FIELD.cy+dy/n;}}
+function ellipseEdgeX(y){const q=1-((y-FIELD.cy)*(y-FIELD.cy))/(FIELD.ry*FIELD.ry);return FIELD.rx*Math.sqrt(Math.max(0,q));}
 function updateSlime(dt){slime.anger=Math.max(0,slime.anger-dt*8);slime.hop-=dt;slime.think-=dt;
  let attraction=null,best=1e9;
  for(const i of items){if(i.kind===0){const d=dist(slime,i);if(d<240&&d<best){best=d;attraction=i;}}}
@@ -106,21 +110,46 @@ function updateSlime(dt){slime.anger=Math.max(0,slime.anger-dt*8);slime.hop-=dt;
  if(slime.z<42)for(const p of players){if(!p.shield||p.disabled>0)continue;if(dist(p,slime)<65){const side=Math.sin(slime.dir-p.dir)>=0?1:-1;slime.dir=p.dir+side*Math.PI/2;slime.vx=Math.cos(slime.dir)*105;slime.vy=Math.sin(slime.dir)*105;slime.hop=.34;showMsg('スライムはキョロキョロして向きを変えた');}}
  // items
  for(let n=items.length-1;n>=0;n--){const i=items[n];i.life-=dt;if(i.life<=0){items.splice(n,1);continue;}if(dist(i,slime)<35&&slime.z<25){if(i.kind===0){slime.dir=Math.atan2(i.y-slime.y,i.x-slime.x);slime.hop=.5;i.life=0;slime.anger=Math.max(0,slime.anger-20);showMsg('リンゴをもぐもぐ');}else if(i.kind===1&&!slime.bucket){slime.bucket=true;i.life=0;showMsg('バケツをかぶってしまった！');}else if(i.kind===2){const dir=i.team===0?0:Math.PI;slime.vx=Math.cos(dir)*330;slime.vy=0;slime.vz=560;slime.z=4;i.life=0;showMsg('ジャンプ台で特大ジャンプ！');}}}
- // goals and walls
- if(slime.y<FIELD.y+14){slime.y=FIELD.y+14;slime.dir=Math.abs(slime.dir);slime.vy=Math.abs(slime.vy);}if(slime.y>FIELD.y+FIELD.h-14){slime.y=FIELD.y+FIELD.h-14;slime.dir=-Math.abs(slime.dir);slime.vy=-Math.abs(slime.vy);}
- if(slime.x<FIELD.x-10&&slime.y>230&&slime.y<370)goal(1);else if(slime.x>FIELD.x+FIELD.w+10&&slime.y>230&&slime.y<370)goal(0);else{if(slime.x<FIELD.x+10){slime.x=FIELD.x+10;slime.dir=0;slime.vx=Math.abs(slime.vx);}if(slime.x>FIELD.x+FIELD.w-10){slime.x=FIELD.x+FIELD.w-10;slime.dir=Math.PI;slime.vx=-Math.abs(slime.vx);}}
+ // goals and oval boundary
+ const goalHalf=72,edge=ellipseEdgeX(slime.y),leftEdge=FIELD.cx-edge,rightEdge=FIELD.cx+edge;
+ if(Math.abs(slime.y-FIELD.cy)<goalHalf){
+   if(slime.x<leftEdge-18){goal(1);return;}
+   if(slime.x>rightEdge+18){goal(0);return;}
+ }
+ const nx=(slime.x-FIELD.cx)/FIELD.rx,ny=(slime.y-FIELD.cy)/FIELD.ry,n=Math.hypot(nx,ny);
+ if(n>1){
+   slime.x=FIELD.cx+(slime.x-FIELD.cx)/n;slime.y=FIELD.cy+(slime.y-FIELD.cy)/n;
+   const normal=Math.atan2(ny/FIELD.ry,nx/FIELD.rx),v=Math.hypot(slime.vx,slime.vy)||90;
+   slime.dir=normal+Math.PI+rnd(-.22,.22);slime.vx=Math.cos(slime.dir)*v;slime.vy=Math.sin(slime.dir)*v;
+ }
  updateHud();}
 function goal(team){score[team]++;showMsg(team===0?'青チーム得点！':'赤チーム得点！');if(score[team]>=3){running=false;setTimeout(()=>{document.querySelector('#intro h1').textContent=team===0?'青チームの勝ち！':'赤チームの勝ち！';document.querySelector('#intro .sub').textContent='もう一度、気まぐれなスライムを導こう';document.getElementById('start').textContent='再試合';document.getElementById('intro').classList.remove('hidden');document.getElementById('controls').classList.add('hidden');},700);}else setTimeout(()=>reset(false),450);}
 function update(dt){const human=players.filter(p=>p.team===0);controlPlayer(players[active],dt);for(const p of human)if(p!==players[active]){p.vx*=.8;p.vy*=.8;movePlayer(p,dt);}for(const p of players)if(p.team===1)aiControl(p,dt);updateSlime(dt);items=items.filter(i=>i.life>0);if(msgTimer>0){msgTimer-=dt;if(msgTimer<=0)document.getElementById('message').classList.remove('show');}}
 function draw(){ctx.clearRect(0,0,W,H);ctx.fillStyle='#8fbb68';ctx.fillRect(0,0,W,H);drawField();for(const i of items)drawItem(i);for(const p of players)drawPlayer(p);drawSlime();}
-function drawField(){ctx.fillStyle='#a8cc7b';roundRect(FIELD.x,FIELD.y,FIELD.w,FIELD.h,28,true);ctx.strokeStyle='#f4edc7';ctx.lineWidth=5;ctx.strokeRect(FIELD.x,FIELD.y,FIELD.w,FIELD.h);ctx.setLineDash([10,12]);ctx.beginPath();ctx.moveTo(500,FIELD.y);ctx.lineTo(500,FIELD.y+FIELD.h);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#75543c';ctx.fillRect(10,230,55,140);ctx.fillRect(935,230,55,140);ctx.fillStyle='#e8d09b';ctx.font='900 18px sans-serif';ctx.fillText('青の村',5,215);ctx.fillText('赤の村',930,215);
+function drawField(){
+ // 左右の村。中央の楕円だけが異空間で接続された競技場。
+ ctx.fillStyle='#78985e';ctx.fillRect(0,0,W/2,H);ctx.fillStyle='#9a7b5a';ctx.fillRect(W/2,0,W/2,H);
+ for(let i=0;i<70;i++){const x=(i*89)%W,y=(i*53)%H;ctx.fillStyle=x<W/2?'#66864f':'#826548';ctx.fillRect(x,y,18,3);}
+ drawVillageScene(0);drawVillageScene(1);
+ ctx.save();ctx.translate(FIELD.cx,FIELD.cy);ctx.fillStyle='#503e2b';ctx.beginPath();ctx.ellipse(0,0,FIELD.rx+20,FIELD.ry+20,0,0,Math.PI*2);ctx.fill();ctx.restore();
+ ctx.save();ctx.beginPath();ctx.ellipse(FIELD.cx,FIELD.cy,FIELD.rx,FIELD.ry,0,0,Math.PI*2);ctx.clip();
+ ctx.fillStyle='#a8cc7b';ctx.fillRect(0,0,W,H);
+ const g=ctx.createLinearGradient(FIELD.x,0,FIELD.x+FIELD.w,0);g.addColorStop(0,'#afd083');g.addColorStop(.5,'#98c374');g.addColorStop(1,'#b6ca7e');ctx.fillStyle=g;ctx.fillRect(FIELD.x,FIELD.y,FIELD.w,FIELD.h);
+ ctx.setLineDash([10,12]);ctx.strokeStyle='#f4edc799';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(500,FIELD.y);ctx.lineTo(500,FIELD.y+FIELD.h);ctx.stroke();ctx.setLineDash([]);
  for(const w of puddles){ctx.save();ctx.translate(w.x,w.y);ctx.scale(1,w.ry/w.rx);ctx.fillStyle='#72b8d8aa';ctx.beginPath();ctx.arc(0,0,w.rx,0,Math.PI*2);ctx.fill();ctx.restore();}
  for(const t of trees){ctx.fillStyle='#765139';ctx.fillRect(t.x-7,t.y,14,35);ctx.fillStyle='#4f8b45';ctx.beginPath();ctx.arc(t.x,t.y,t.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#71a65a';ctx.beginPath();ctx.arc(t.x-10,t.y-10,t.r*.55,0,Math.PI*2);ctx.fill();}
- ctx.fillStyle='#638f4b';for(let i=0;i<55;i++){const x=(i*173)%900+50,y=(i*97)%460+70;ctx.fillRect(x,y,2,7);}}
+ ctx.fillStyle='#638f4b';for(let i=0;i<75;i++){const x=(i*173)%890+55,y=(i*97)%470+65;ctx.fillRect(x,y,2,7);}
+ ctx.restore();
+ ctx.strokeStyle='#f7e7bd';ctx.lineWidth=5;ctx.beginPath();ctx.ellipse(FIELD.cx,FIELD.cy,FIELD.rx,FIELD.ry,0,0,Math.PI*2);ctx.stroke();
+ // 村へ抜ける異空間の門
+ drawPortal(54,300,'#69a9ef','青の村');drawPortal(946,300,'#ef7770','赤の村');
+}
+function drawVillageScene(team){const left=team===0,x=left?0:850;ctx.fillStyle=left?'#d6c28f':'#d0b17e';ctx.fillRect(x,215,150,170);ctx.fillStyle=left?'#6f91b3':'#b66c61';ctx.beginPath();ctx.moveTo(x,215);ctx.lineTo(x+(left?150:0),215);ctx.lineTo(x+(left?105:45),150);ctx.closePath();ctx.fill();ctx.fillStyle='#513a2b';ctx.fillRect(x+(left?95:15),285,42,100);}
+function drawPortal(x,y,color,label){ctx.save();ctx.translate(x,y);ctx.shadowBlur=18;ctx.shadowColor=color;ctx.strokeStyle=color;ctx.lineWidth=12;ctx.beginPath();ctx.ellipse(0,0,28,78,0,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle='#15243bdd';ctx.beginPath();ctx.ellipse(0,0,19,67,0,0,Math.PI*2);ctx.fill();ctx.restore();ctx.fillStyle='#fff3c4';ctx.font='900 18px sans-serif';ctx.textAlign='center';ctx.fillText(label,x,y-96);ctx.textAlign='start';}
 function drawPlayer(p){ctx.save();ctx.translate(p.x,p.y);if(p===players[active]){ctx.strokeStyle='#fff36d';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,24,0,Math.PI*2);ctx.stroke();}if(p.disabled>0){ctx.fillStyle='#99d6a7aa';ctx.beginPath();ctx.arc(0,0,27,0,Math.PI*2);ctx.fill();}
- ctx.rotate(p.dir);ctx.fillStyle=p.team===0?'#3e86d7':'#d9534f';ctx.fillRect(-11,-7,22,25);ctx.fillStyle='#f2c9a5';ctx.beginPath();ctx.arc(0,-14,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#49352b';ctx.fillRect(-8,-22,16,5);ctx.strokeStyle='#4a352a';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-8,18);ctx.lineTo(-12,29);ctx.moveTo(8,18);ctx.lineTo(12,29);ctx.stroke();
- if(p.role===0){ctx.fillStyle='#9aa7ad';ctx.fillRect(15,-22,9,44);ctx.strokeStyle='#e2edf0';ctx.lineWidth=3;ctx.strokeRect(15,-22,9,44);}else if(p.role===1){ctx.strokeStyle='#7a5231';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(5,-1);ctx.lineTo(38,-1);ctx.stroke();}else{ctx.strokeStyle='#7a5231';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(5,-1);ctx.lineTo(30,-18);ctx.stroke();if(p.action){ctx.strokeStyle='#f3d4e8';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(30,-18);ctx.quadraticCurveTo(52,-30,45,-4);ctx.stroke();}}
- ctx.restore();ctx.font='20px sans-serif';ctx.fillText(roles[p.role].icon,p.x-10,p.y-32);}
+ // 人物の頭と胴体は常に上向き。腕と道具だけが操作方向を向く。
+ ctx.fillStyle=p.team===0?'#3e86d7':'#d9534f';ctx.fillRect(-11,-7,22,25);ctx.fillStyle='#f2c9a5';ctx.beginPath();ctx.arc(0,-14,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#49352b';ctx.beginPath();ctx.arc(0,-18,9,Math.PI,Math.PI*2);ctx.fill();ctx.strokeStyle='#4a352a';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-7,18);ctx.lineTo(-11,29);ctx.moveTo(7,18);ctx.lineTo(11,29);ctx.stroke();
+ ctx.save();ctx.rotate(p.dir);ctx.strokeStyle='#f2c9a5';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(5,0);ctx.lineTo(17,0);ctx.stroke();if(p.role===0){ctx.fillStyle='#9aa7ad';ctx.fillRect(15,-22,9,44);ctx.strokeStyle='#e2edf0';ctx.lineWidth=3;ctx.strokeRect(15,-22,9,44);}else if(p.role===1){ctx.strokeStyle='#7a5231';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(42,0);ctx.stroke();}else{ctx.strokeStyle='#7a5231';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(13,0);ctx.lineTo(34,-14);ctx.stroke();if(p.action){ctx.strokeStyle='#f3d4e8';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(34,-14);ctx.quadraticCurveTo(55,-27,47,-2);ctx.stroke();}}ctx.restore();ctx.restore();ctx.font='20px sans-serif';ctx.fillText(roles[p.role].icon,p.x-10,p.y-32);}
 function drawSlime(){ctx.save();ctx.translate(slime.x,slime.y-slime.z);const squash=slime.z===0?1.08:1;ctx.scale(squash,1/squash);ctx.fillStyle='#80d65b';ctx.beginPath();ctx.arc(0,0,24,0,Math.PI*2);ctx.fill();ctx.fillStyle='#c9f5a9';ctx.beginPath();ctx.arc(-8,-8,7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#1d3825';ctx.beginPath();ctx.arc(-7,-2,3,0,Math.PI*2);ctx.arc(8,-2,3,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#1d3825';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,5,7,.2,Math.PI-.2);ctx.stroke();if(slime.bucket){ctx.fillStyle='#8d9aa0';ctx.beginPath();ctx.moveTo(-25,-17);ctx.lineTo(25,-17);ctx.lineTo(18,16);ctx.lineTo(-18,16);ctx.closePath();ctx.fill();ctx.strokeStyle='#dfe7e9';ctx.stroke();}ctx.restore();ctx.fillStyle='#0003';ctx.beginPath();ctx.ellipse(slime.x,slime.y+22,23,8,0,0,Math.PI*2);ctx.fill();}
 function drawItem(i){ctx.save();ctx.translate(i.x,i.y);if(i.kind===0){ctx.font='28px sans-serif';ctx.fillText('🍎',-14,10);}else if(i.kind===1){ctx.fillStyle='#89979d';ctx.fillRect(-17,-14,34,28);ctx.strokeStyle='#dce6e8';ctx.lineWidth=3;ctx.strokeRect(-17,-14,34,28);}else{ctx.fillStyle=i.team===0?'#4a91d4':'#d85855';ctx.beginPath();ctx.moveTo(-27,14);ctx.lineTo(27,14);ctx.lineTo(18,-12);ctx.lineTo(-18,-12);ctx.closePath();ctx.fill();ctx.strokeStyle='#fff9';ctx.lineWidth=3;ctx.stroke();}ctx.restore();}
 function roundRect(x,y,w,h,r,fill){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill)ctx.fill();}
