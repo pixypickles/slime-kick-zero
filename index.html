@@ -1,169 +1,46 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#759b55">
-<title>スライム・キック・ゼロ 試作版</title>
-<style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-canvas,#controls,#controls *{touch-action:none}
-.overlay,.card,.desc{touch-action:pan-y;overscroll-behavior:contain}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#24352b;color:#fff;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
-body{display:grid;place-items:center}
-#wrap{position:relative;width:min(100vw,calc(100vh*1.6667));height:min(100vh,calc(100vw*.6));max-width:1000px;max-height:600px;background:#91ba69;overflow:hidden;box-shadow:0 14px 50px #0009}
-canvas{display:block;width:100%;height:100%}
-.overlay{position:absolute;inset:0;display:block;padding:20px;background:#183224d9;z-index:20;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.card{width:min(760px,94%);min-height:min-content;margin:auto;text-align:center;padding:24px;border:3px solid #f4d88a;border-radius:24px;background:#294a36f2;box-shadow:0 12px 40px #0008}
-h1{margin:0 0 5px;font-size:clamp(27px,5vw,50px);text-shadow:0 4px #0005}.sub{color:#ffeaa8;font-weight:900;margin-bottom:15px}.desc{line-height:1.7;text-align:left;margin:auto;max-width:650px}.desc b{color:#fff3a7}
-button{border:0;color:#fff;font-weight:900;box-shadow:inset 0 -5px #0003,0 5px 12px #0004;cursor:pointer}.start{margin-top:18px;padding:13px 38px;border-radius:18px;background:#e68a34;font-size:22px}.hidden{display:none!important}
-#hud{position:absolute;inset:0;pointer-events:none}.score{position:absolute;top:2%;left:50%;transform:translateX(-50%);padding:7px 18px;border-radius:999px;background:#183224dd;font-weight:1000;font-size:clamp(16px,2.7vw,26px);border:2px solid #fff8}.info{position:absolute;top:2%;left:2%;padding:7px 12px;border-radius:14px;background:#183224c9;font-size:clamp(10px,1.45vw,14px);line-height:1.45}.mood{position:absolute;top:2%;right:2%;padding:7px 12px;border-radius:14px;background:#183224c9;font-size:clamp(10px,1.45vw,14px)}
-#controls{position:absolute;inset:0;pointer-events:none;z-index:10}.stick{position:absolute;left:4%;bottom:6%;width:20%;aspect-ratio:1;border-radius:50%;background:#fff3;border:3px solid #fff7;pointer-events:auto}.knob{position:absolute;left:31%;top:31%;width:38%;height:38%;border-radius:50%;background:#fffbd;box-shadow:0 3px 10px #0007}.buttons{position:absolute;right:3%;bottom:5%;width:34%;height:40%;pointer-events:none}.buttons button{position:absolute;width:34%;aspect-ratio:1;border-radius:50%;font-size:clamp(11px,1.8vw,18px);pointer-events:auto}.a{right:0;bottom:22%;background:#e35d4d}.b{right:35%;bottom:0;background:#438dd5}.c{right:35%;bottom:56%;background:#59a95b}.buttons button.pressed{transform:translateY(4px);box-shadow:inset 0 -2px #0003,0 1px 5px #0005}
-#message{position:absolute;left:50%;top:16%;transform:translateX(-50%);padding:9px 18px;border-radius:16px;background:#203522df;font-weight:900;opacity:0;transition:opacity .18s;pointer-events:none;white-space:nowrap}.show{opacity:1!important}
-@media (orientation:portrait){#wrap{width:min(100dvh,calc(100dvw/.6));height:min(60dvh,100dvw);max-width:none;max-height:none;transform:rotate(90deg);transform-origin:center}.card{padding:15px}.desc{font-size:12px;line-height:1.45}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#163850">
+  <title>スライム・キック・ゼロ</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="wrap">
-<canvas id="game" width="1000" height="600"></canvas>
-<div id="hud" class="hidden">
-  <div class="score"><span id="blueScore">0</span> — <span id="redScore">0</span></div>
-  <div class="info" id="roleInfo"></div>
-  <div class="mood" id="moodInfo"></div>
-  <button id="btnHelp" style="pointer-events:auto;position:absolute;right:2%;top:10%;padding:6px 10px;border-radius:12px;background:#72559a">遊び方</button>
-</div>
-<div id="message"></div>
-<div id="controls" class="hidden">
-  <div id="stick" class="stick"><div id="knob" class="knob"></div></div>
-  <div class="buttons">
-    <button id="btnA" class="a">A<br>道具</button>
-    <button id="btnB" class="b">B<br>交代</button>
-    <button id="btnC" class="c">C<br>設置</button>
-  </div>
-</div>
-<div id="intro" class="overlay">
- <div class="card">
-  <h1>スライム・キック・ゼロ</h1>
-  <div class="sub">蹴らない時代の、ほのぼの誘導競技・試作版</div>
-  <div class="desc">
-   能力バトルの時代が終わり、スライムに自我が芽生えました。人々はスライムを蹴ることをやめ、道具と知恵で相手の村へ導く新しい競技を始めます。人間同士はぶつからず、スライムだけに働きかけます。<br><br>
-   <b>盾役：</b>Aで盾を構え、近づいたスライムを90度方向転換。Cでリンゴを置く。<br>
-   <b>棒役：</b>Aでつついて大ジャンプ。連打するとネバネバ反撃。Cでバケツを置く。<br>
-   <b>猫じゃらし役：</b>Aを押している間、視線の先で振ってスライムを誘う。Cでジャンプ台を置く。<br><br>
-   Bで操作キャラを交代。キーボードでは移動がWASD／矢印、A・B・Cキーでも操作できます。
-  </div>
-  <button id="start" class="start">試合開始</button>
- </div>
-</div>
-<div id="help" class="overlay hidden">
- <div class="card"><h1>遊び方</h1><div class="desc">青チームを操作します。相手側の赤い村へスライムが入ると1点。先に3点で勝利です。<br><br>水たまりではスライムが寄り道し、木は進路を遮ります。バケツを被ったスライムは、次につつかれるとバケツごと滑ります。ジャンプ台は置いたチームの攻撃方向へ特大ジャンプさせます。</div><button id="closeHelp" class="start">戻る</button></div>
-</div>
-</div>
-<script>
-(()=>{
-'use strict';
-const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
-const W=1000,H=600,FIELD={x:55,y:65,w:890,h:470,cx:500,cy:300,rx:445,ry:235};
-const roles=[
- {name:'盾役',icon:'🛡️',speed:145,item:'リンゴ',color:'#f1c34d'},
- {name:'棒役',icon:'🪄',speed:165,item:'バケツ',color:'#e9824b'},
- {name:'猫じゃらし役',icon:'🪶',speed:185,item:'ジャンプ台',color:'#68b8df'}
-];
-const trees=[{x:355,y:190,r:28},{x:650,y:410,r:30},{x:500,y:300,r:24}];
-const puddles=[{x:275,y:390,rx:72,ry:35},{x:745,y:195,rx:65,ry:31}];
-let keys={},joy={x:0,y:0},active=0,score=[0,0],running=false,last=0,msgTimer=0;
-let players=[],slime,items=[],aiThink=0;
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),rnd=(a,b)=>a+Math.random()*(b-a);
-function makePlayer(team,role,i){return {team,role,x:team===0?170+i*48:830-i*48,y:210+i*90,vx:0,vy:0,dir:team===0?0:Math.PI,shield:false,action:false,disabled:0,cool:0,placeCool:0};}
-function reset(all=false){players=[];for(let t=0;t<2;t++)for(let r=0;r<3;r++)players.push(makePlayer(t,r,r));items=[];active=0;slime={x:500,y:300,vx:0,vy:0,z:0,vz:0,dir:Math.random()*Math.PI*2,hop:0.35,think:1.2,anger:0,sticky:0,bucket:false,slide:0,target:null};if(all)score=[0,0];updateHud();}
-function showMsg(s){const m=document.getElementById('message');m.textContent=s;m.classList.add('show');msgTimer=1.5;}
-function updateHud(){const p=players[active]||{role:0};const actionNames=['盾を構える','棒でつつく','猫じゃらし'];document.getElementById('blueScore').textContent=score[0];document.getElementById('redScore').textContent=score[1];document.getElementById('roleInfo').innerHTML=`操作中：${roles[p.role].name}<br>A ${actionNames[p.role]}　B 交代　C ${roles[p.role].item}`;document.getElementById('btnA').innerHTML=`A<br>${actionNames[p.role]}`;document.getElementById('btnC').innerHTML=`C<br>${roles[p.role].item}`;let mood=slime?.anger>70?'かなり怒っている':slime?.anger>35?'少し不機嫌':'のんびり';document.getElementById('moodInfo').textContent='スライム：'+mood;}
-function start(){reset(true);running=true;last=performance.now();document.getElementById('intro').classList.add('hidden');document.getElementById('hud').classList.remove('hidden');document.getElementById('controls').classList.remove('hidden');requestAnimationFrame(loop);}
-function switchPlayer(){const teamPlayers=players.filter(p=>p.team===0);const cur=teamPlayers.indexOf(players[active]);active=players.indexOf(teamPlayers[(cur+1)%3]);showMsg(`${roles[players[active].role].name}に交代`);updateHud();}
-function useA(p,on=true){if(p.disabled>0)return;p.action=on;if(p.role===0){p.shield=on;return;}if(!on)return;if(p.cool>0)return;
- if(p.role===1){p.cool=.52;const d=dist(p,slime);if(d<125){const ang=Math.atan2(slime.y-p.y,slime.x-p.x);slime.anger+=30;if(slime.anger>=90){stickyAttack(p);return;}if(slime.bucket){slime.bucket=false;slime.slide=1.8;slime.vx=Math.cos(ang)*430;slime.vy=Math.sin(ang)*430;slime.vz=30;showMsg('ガラガラガラ！');}else{slime.vx=Math.cos(ang)*240;slime.vy=Math.sin(ang)*240;slime.vz=470;slime.z=2;showMsg('ぽよーん！');}}}
- }
-function stickyAttack(p){slime.anger=25;p.disabled=2.4;p.action=false;p.shield=false;showMsg('ネバネバ反撃！ しばらく動けない');}
-function placeItem(p){if(p.disabled>0||p.placeCool>0)return;p.placeCool=2.5;items=items.filter(i=>!(i.team===p.team&&i.kind===p.role));const x=clamp(p.x+Math.cos(p.dir)*58,FIELD.x+20,FIELD.x+FIELD.w-20),y=clamp(p.y+Math.sin(p.dir)*58,FIELD.y+20,FIELD.y+FIELD.h-20);items.push({kind:p.role,team:p.team,x,y,life:18});showMsg(`${roles[p.role].item}を置いた`);}
-function controlPlayer(p,dt){let x=joy.x+(keys.ArrowRight||keys.d?1:0)-(keys.ArrowLeft||keys.a?1:0),y=joy.y+(keys.ArrowDown||keys.s?1:0)-(keys.ArrowUp||keys.w?1:0);let l=Math.hypot(x,y);if(l>1){x/=l;y/=l;}if(p.disabled>0){x=y=0;}const slow=p.shield?.45:1;p.vx=x*roles[p.role].speed*slow;p.vy=y*roles[p.role].speed*slow;if(l>.15)p.dir=Math.atan2(y,x);movePlayer(p,dt);}
-function aiControl(p,dt){if(p.disabled>0){p.vx=p.vy=0;movePlayer(p,dt);return;}const goalX=p.team===1?FIELD.x+25:FIELD.x+FIELD.w-25;let tx=slime.x,ty=slime.y,dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy)||1;p.dir=Math.atan2(dy,dx);p.shield=false;p.action=false;
- if(p.role===0){const ahead=(p.team===1?slime.x<500:slime.x>500);if(d<92&&ahead){p.shield=true;p.vx=p.vy=0;}else{p.vx=dx/d*roles[p.role].speed*.7;p.vy=dy/d*roles[p.role].speed*.7;}}
- else if(p.role===1){if(d<92&&p.cool<=0&&Math.random()<.035)useA(p,true);p.vx=dx/d*roles[p.role].speed*.75;p.vy=dy/d*roles[p.role].speed*.75;}
- else {const offset=p.team===1?-95:95;tx=slime.x+offset;ty=slime.y;dx=tx-p.x;dy=ty-p.y;d=Math.hypot(dx,dy)||1;p.vx=dx/d*roles[p.role].speed*.7;p.vy=dy/d*roles[p.role].speed*.7;p.action=d<155;}
- if(Math.random()<.0018&&p.placeCool<=0)placeItem(p);movePlayer(p,dt);}
-function movePlayer(p,dt){p.cool=Math.max(0,p.cool-dt);p.placeCool=Math.max(0,p.placeCool-dt);p.disabled=Math.max(0,p.disabled-dt);p.x+=p.vx*dt;p.y+=p.vy*dt;keepInsideEllipse(p,18);for(const t of trees){const d=dist(p,t),min=t.r+14;if(d<min){const a=Math.atan2(p.y-t.y,p.x-t.x);p.x=t.x+Math.cos(a)*min;p.y=t.y+Math.sin(a)*min;}}}
-function keepInsideEllipse(o,pad=0){const dx=o.x-FIELD.cx,dy=o.y-FIELD.cy,rx=FIELD.rx-pad,ry=FIELD.ry-pad,n=Math.sqrt((dx*dx)/(rx*rx)+(dy*dy)/(ry*ry));if(n>1){o.x=FIELD.cx+dx/n;o.y=FIELD.cy+dy/n;}}
-function ellipseEdgeX(y){const q=1-((y-FIELD.cy)*(y-FIELD.cy))/(FIELD.ry*FIELD.ry);return FIELD.rx*Math.sqrt(Math.max(0,q));}
-function updateSlime(dt){slime.anger=Math.max(0,slime.anger-dt*8);slime.hop-=dt;slime.think-=dt;
- let attraction=null,best=1e9;
- for(const i of items){if(i.kind===0){const d=dist(slime,i);if(d<240&&d<best){best=d;attraction=i;}}}
- for(const p of players){if(p.role===2&&p.action&&p.disabled<=0){const vx=slime.x-p.x,vy=slime.y-p.y,d=Math.hypot(vx,vy);const diff=Math.abs(Math.atan2(Math.sin(Math.atan2(vy,vx)-p.dir),Math.cos(Math.atan2(vy,vx)-p.dir)));if(d<225&&diff<.9&&d<best){best=d;attraction={x:p.x+Math.cos(p.dir)*35,y:p.y+Math.sin(p.dir)*35,cat:true};}}}
- for(const w of puddles){const d=Math.hypot(slime.x-w.x,slime.y-w.y);if(d<180&&Math.random()<.006&&d<best){best=d;attraction=w;}}
- if(slime.think<=0){slime.think=rnd(.7,1.7);if(attraction)slime.dir=Math.atan2(attraction.y-slime.y,attraction.x-slime.x);else slime.dir+=rnd(-1.1,1.1);}
- if(slime.hop<=0&&slime.z<=0&&!slime.slide){slime.hop=rnd(.42,.72);if(attraction)slime.dir=Math.atan2(attraction.y-slime.y,attraction.x-slime.x);const speed=attraction?125:rnd(75,105);slime.vx=Math.cos(slime.dir)*speed;slime.vy=Math.sin(slime.dir)*speed;slime.vz=190;}
- slime.vz-=700*dt;slime.z+=slime.vz*dt;if(slime.z<=0){slime.z=0;if(slime.vz<0)slime.vz=0;slime.vx*=.25;slime.vy*=.25;}
- if(slime.slide>0){slime.slide-=dt;slime.vx*=Math.pow(.985,dt*60);slime.vy*=Math.pow(.985,dt*60);}
- slime.x+=slime.vx*dt;slime.y+=slime.vy*dt;
- // trees and field boundaries
- for(const t of trees){const d=dist(slime,t),min=t.r+20;if(d<min&&slime.z<35){const a=Math.atan2(slime.y-t.y,slime.x-t.x);slime.x=t.x+Math.cos(a)*min;slime.y=t.y+Math.sin(a)*min;slime.dir=a;slime.vx=Math.cos(a)*Math.abs(slime.vx);slime.vy=Math.sin(a)*Math.abs(slime.vy);}}
- // shields turn by exactly 90 degrees, unless slime is high enough
- if(slime.z<42)for(const p of players){if(!p.shield||p.disabled>0)continue;if(dist(p,slime)<82){const side=Math.sin(slime.dir-p.dir)>=0?1:-1;slime.dir=p.dir+side*Math.PI/2;slime.vx=Math.cos(slime.dir)*105;slime.vy=Math.sin(slime.dir)*105;slime.hop=.34;showMsg('スライムはキョロキョロして向きを変えた');}}
- // items
- for(let n=items.length-1;n>=0;n--){const i=items[n];i.life-=dt;if(i.life<=0){items.splice(n,1);continue;}if(dist(i,slime)<44&&slime.z<32){if(i.kind===0){slime.dir=Math.atan2(i.y-slime.y,i.x-slime.x);slime.hop=.5;i.life=0;slime.anger=Math.max(0,slime.anger-20);showMsg('リンゴをもぐもぐ');}else if(i.kind===1&&!slime.bucket){slime.bucket=true;i.life=0;showMsg('バケツをかぶってしまった！');}else if(i.kind===2){const dir=i.team===0?0:Math.PI;slime.vx=Math.cos(dir)*330;slime.vy=0;slime.vz=560;slime.z=4;i.life=0;showMsg('ジャンプ台で特大ジャンプ！');}}}
- // goals and oval boundary
- const goalHalf=72,edge=ellipseEdgeX(slime.y),leftEdge=FIELD.cx-edge,rightEdge=FIELD.cx+edge;
- if(Math.abs(slime.y-FIELD.cy)<goalHalf){
-   if(slime.x<leftEdge-18){goal(1);return;}
-   if(slime.x>rightEdge+18){goal(0);return;}
- }
- const nx=(slime.x-FIELD.cx)/FIELD.rx,ny=(slime.y-FIELD.cy)/FIELD.ry,n=Math.hypot(nx,ny);
- if(n>1){
-   slime.x=FIELD.cx+(slime.x-FIELD.cx)/n;slime.y=FIELD.cy+(slime.y-FIELD.cy)/n;
-   const normal=Math.atan2(ny/FIELD.ry,nx/FIELD.rx),v=Math.hypot(slime.vx,slime.vy)||90;
-   slime.dir=normal+Math.PI+rnd(-.22,.22);slime.vx=Math.cos(slime.dir)*v;slime.vy=Math.sin(slime.dir)*v;
- }
- updateHud();}
-function goal(team){score[team]++;showMsg(team===0?'青チーム得点！':'赤チーム得点！');if(score[team]>=3){running=false;setTimeout(()=>{document.querySelector('#intro h1').textContent=team===0?'青チームの勝ち！':'赤チームの勝ち！';document.querySelector('#intro .sub').textContent='もう一度、気まぐれなスライムを導こう';document.getElementById('start').textContent='再試合';document.getElementById('intro').classList.remove('hidden');document.getElementById('controls').classList.add('hidden');},700);}else setTimeout(()=>reset(false),450);}
-function update(dt){const human=players.filter(p=>p.team===0);controlPlayer(players[active],dt);for(const p of human)if(p!==players[active]){p.vx*=.8;p.vy*=.8;movePlayer(p,dt);}for(const p of players)if(p.team===1)aiControl(p,dt);updateSlime(dt);items=items.filter(i=>i.life>0);if(msgTimer>0){msgTimer-=dt;if(msgTimer<=0)document.getElementById('message').classList.remove('show');}}
-function draw(){ctx.clearRect(0,0,W,H);ctx.fillStyle='#8fbb68';ctx.fillRect(0,0,W,H);drawField();for(const i of items)drawItem(i);for(const p of players)drawPlayer(p);drawSlime();}
-function drawField(){
- // 左右の村。中央の楕円だけが異空間で接続された競技場。
- ctx.fillStyle='#78985e';ctx.fillRect(0,0,W/2,H);ctx.fillStyle='#9a7b5a';ctx.fillRect(W/2,0,W/2,H);
- for(let i=0;i<70;i++){const x=(i*89)%W,y=(i*53)%H;ctx.fillStyle=x<W/2?'#66864f':'#826548';ctx.fillRect(x,y,18,3);}
- drawVillageScene(0);drawVillageScene(1);
- ctx.save();ctx.translate(FIELD.cx,FIELD.cy);ctx.fillStyle='#503e2b';ctx.beginPath();ctx.ellipse(0,0,FIELD.rx+20,FIELD.ry+20,0,0,Math.PI*2);ctx.fill();ctx.restore();
- ctx.save();ctx.beginPath();ctx.ellipse(FIELD.cx,FIELD.cy,FIELD.rx,FIELD.ry,0,0,Math.PI*2);ctx.clip();
- ctx.fillStyle='#a8cc7b';ctx.fillRect(0,0,W,H);
- const g=ctx.createLinearGradient(FIELD.x,0,FIELD.x+FIELD.w,0);g.addColorStop(0,'#afd083');g.addColorStop(.5,'#98c374');g.addColorStop(1,'#b6ca7e');ctx.fillStyle=g;ctx.fillRect(FIELD.x,FIELD.y,FIELD.w,FIELD.h);
- ctx.setLineDash([10,12]);ctx.strokeStyle='#f4edc799';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(500,FIELD.y);ctx.lineTo(500,FIELD.y+FIELD.h);ctx.stroke();ctx.setLineDash([]);
- for(const w of puddles){ctx.save();ctx.translate(w.x,w.y);ctx.scale(1,w.ry/w.rx);ctx.fillStyle='#72b8d8aa';ctx.beginPath();ctx.arc(0,0,w.rx,0,Math.PI*2);ctx.fill();ctx.restore();}
- for(const t of trees){ctx.fillStyle='#765139';ctx.fillRect(t.x-7,t.y,14,35);ctx.fillStyle='#4f8b45';ctx.beginPath();ctx.arc(t.x,t.y,t.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#71a65a';ctx.beginPath();ctx.arc(t.x-10,t.y-10,t.r*.55,0,Math.PI*2);ctx.fill();}
- ctx.fillStyle='#638f4b';for(let i=0;i<75;i++){const x=(i*173)%890+55,y=(i*97)%470+65;ctx.fillRect(x,y,2,7);}
- ctx.restore();
- ctx.strokeStyle='#f7e7bd';ctx.lineWidth=5;ctx.beginPath();ctx.ellipse(FIELD.cx,FIELD.cy,FIELD.rx,FIELD.ry,0,0,Math.PI*2);ctx.stroke();
- // 村へ抜ける異空間の門
- drawPortal(54,300,'#69a9ef','青の村');drawPortal(946,300,'#ef7770','赤の村');
-}
-function drawVillageScene(team){const left=team===0,x=left?0:850;ctx.fillStyle=left?'#d6c28f':'#d0b17e';ctx.fillRect(x,215,150,170);ctx.fillStyle=left?'#6f91b3':'#b66c61';ctx.beginPath();ctx.moveTo(x,215);ctx.lineTo(x+(left?150:0),215);ctx.lineTo(x+(left?105:45),150);ctx.closePath();ctx.fill();ctx.fillStyle='#513a2b';ctx.fillRect(x+(left?95:15),285,42,100);}
-function drawPortal(x,y,color,label){ctx.save();ctx.translate(x,y);ctx.shadowBlur=18;ctx.shadowColor=color;ctx.strokeStyle=color;ctx.lineWidth=12;ctx.beginPath();ctx.ellipse(0,0,28,78,0,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle='#15243bdd';ctx.beginPath();ctx.ellipse(0,0,19,67,0,0,Math.PI*2);ctx.fill();ctx.restore();ctx.fillStyle='#fff3c4';ctx.font='900 18px sans-serif';ctx.textAlign='center';ctx.fillText(label,x,y-96);ctx.textAlign='start';}
-function drawPlayer(p){ctx.save();ctx.translate(p.x,p.y);ctx.scale(1.28,1.28);if(p===players[active]){ctx.strokeStyle='#fff36d';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,2,29,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#fff36d';ctx.beginPath();ctx.moveTo(0,-43);ctx.lineTo(-7,-53);ctx.lineTo(7,-53);ctx.closePath();ctx.fill();}if(p.disabled>0){ctx.fillStyle='#99d6a7aa';ctx.beginPath();ctx.arc(0,0,30,0,Math.PI*2);ctx.fill();}
- // 人物の頭と胴体は常に上向き。腕と道具だけが操作方向を向く。
- ctx.fillStyle=p.team===0?'#3e86d7':'#d9534f';ctx.fillRect(-12,-8,24,28);ctx.fillStyle='#f2c9a5';ctx.beginPath();ctx.arc(0,-17,12,0,Math.PI*2);ctx.fill();ctx.fillStyle='#49352b';ctx.beginPath();ctx.arc(0,-21,11,Math.PI,Math.PI*2);ctx.fill();ctx.strokeStyle='#4a352a';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-7,20);ctx.lineTo(-12,32);ctx.moveTo(7,20);ctx.lineTo(12,32);ctx.stroke();
- ctx.save();ctx.rotate(p.dir);ctx.strokeStyle='#f2c9a5';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(5,1);ctx.lineTo(18,1);ctx.stroke();if(p.role===0){if(p.shield){ctx.fillStyle='#9aa7ad';ctx.fillRect(16,-25,11,50);ctx.strokeStyle='#e2edf0';ctx.lineWidth=3;ctx.strokeRect(16,-25,11,50);}else{ctx.fillStyle='#9aa7ad';ctx.fillRect(15,-10,9,33);ctx.strokeStyle='#e2edf0';ctx.lineWidth=2;ctx.strokeRect(15,-10,9,33);}}else if(p.role===1){ctx.strokeStyle='#7a5231';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(14,1);ctx.lineTo(p.action?48:42,1);ctx.stroke();}else{ctx.strokeStyle='#7a5231';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(13,1);ctx.lineTo(34,-14);ctx.stroke();if(p.action){ctx.strokeStyle='#f3d4e8';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(34,-14);ctx.quadraticCurveTo(58,-30,49,-2);ctx.stroke();}}ctx.restore();ctx.restore();}
-function drawSlime(){ctx.save();ctx.translate(slime.x,slime.y-slime.z);ctx.scale(1.38,1.38);const squash=slime.z===0?1.08:1;ctx.scale(squash,1/squash);ctx.fillStyle='#80d65b';ctx.beginPath();ctx.arc(0,0,24,0,Math.PI*2);ctx.fill();ctx.fillStyle='#c9f5a9';ctx.beginPath();ctx.arc(-8,-8,7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#1d3825';ctx.beginPath();ctx.arc(-7,-2,3,0,Math.PI*2);ctx.arc(8,-2,3,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#1d3825';ctx.lineWidth=2;ctx.beginPath();if(slime.anger>55){ctx.moveTo(-8,8);ctx.quadraticCurveTo(0,1,8,8);}else{ctx.arc(0,5,7,.2,Math.PI-.2);}ctx.stroke();if(slime.bucket){ctx.fillStyle='#8d9aa0';ctx.beginPath();ctx.moveTo(-25,-17);ctx.lineTo(25,-17);ctx.lineTo(18,16);ctx.lineTo(-18,16);ctx.closePath();ctx.fill();ctx.strokeStyle='#dfe7e9';ctx.stroke();}ctx.restore();ctx.fillStyle='#0003';ctx.beginPath();ctx.ellipse(slime.x,slime.y+31,31,10,0,0,Math.PI*2);ctx.fill();}
-function drawItem(i){ctx.save();ctx.translate(i.x,i.y);if(i.kind===0){ctx.font='28px sans-serif';ctx.fillText('🍎',-14,10);}else if(i.kind===1){ctx.fillStyle='#89979d';ctx.fillRect(-17,-14,34,28);ctx.strokeStyle='#dce6e8';ctx.lineWidth=3;ctx.strokeRect(-17,-14,34,28);}else{ctx.fillStyle=i.team===0?'#4a91d4':'#d85855';ctx.beginPath();ctx.moveTo(-27,14);ctx.lineTo(27,14);ctx.lineTo(18,-12);ctx.lineTo(-18,-12);ctx.closePath();ctx.fill();ctx.strokeStyle='#fff9';ctx.lineWidth=3;ctx.stroke();}ctx.restore();}
-function roundRect(x,y,w,h,r,fill){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill)ctx.fill();}
-function loop(t){if(!running)return;const dt=Math.min(.033,(t-last)/1000);last=t;update(dt);draw();requestAnimationFrame(loop);}
-// input
-addEventListener('keydown',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=true;if(!running)return;if(k==='b')switchPlayer();if(k==='a')useA(players[active],true);if(k==='c')placeItem(players[active]);});
-addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=false;if(running&&k==='a')useA(players[active],false);});
-const stick=document.getElementById('stick'),knob=document.getElementById('knob');let stickId=null;function stickMove(e){const r=stick.getBoundingClientRect(),p=[...e.touches].find(t=>t.identifier===stickId);if(!p)return;let x=(p.clientX-(r.left+r.width/2))/(r.width*.35),y=(p.clientY-(r.top+r.height/2))/(r.height*.35),l=Math.hypot(x,y);if(l>1){x/=l;y/=l;}joy={x,y};knob.style.left=(31+x*28)+'%';knob.style.top=(31+y*28)+'%';}
-stick.addEventListener('touchstart',e=>{stickId=e.changedTouches[0].identifier;stickMove(e);e.preventDefault()},{passive:false});stick.addEventListener('touchmove',e=>{stickMove(e);e.preventDefault()},{passive:false});stick.addEventListener('touchend',e=>{if([...e.changedTouches].some(t=>t.identifier===stickId)){stickId=null;joy={x:0,y:0};knob.style.left='31%';knob.style.top='31%';}},{passive:false});
-function holdButton(id,down,up){const b=document.getElementById(id);const release=e=>{e?.preventDefault?.();b.classList.remove('pressed');up?.();};b.addEventListener('pointerdown',e=>{e.preventDefault();b.classList.add('pressed');b.setPointerCapture?.(e.pointerId);down();});b.addEventListener('pointerup',release);b.addEventListener('pointercancel',release);b.addEventListener('lostpointercapture',release);}
-holdButton('btnA',()=>useA(players[active],true),()=>useA(players[active],false));holdButton('btnB',switchPlayer);holdButton('btnC',()=>placeItem(players[active]));
-document.getElementById('btnHelp').onclick=()=>document.getElementById('help').classList.remove('hidden');document.getElementById('closeHelp').onclick=()=>document.getElementById('help').classList.add('hidden');document.getElementById('start').onclick=start;
-reset(true);draw();
-})();
-</script>
+  <main id="app">
+    <section id="startScreen" class="screen start-screen">
+      <div class="title-card">
+        <p class="eyebrow">SLIME KICK ZERO</p>
+        <h1>スライム・キック・ゼロ</h1>
+        <p>能力バトルが終わり、スライムに自我が芽生えた時代。人々は蹴ることをやめ、道具と知恵で村へ導く競技を始めました。</p>
+        <button id="startButton" class="primary">試合開始</button>
+        <details>
+          <summary>遊び方</summary>
+          <p>左下のスティックで移動。Aで道具、Bでキャラ交代、Cで設置物。3点先取です。</p>
+          <p>盾は進路変更、棒は中ジャンプ、水鉄砲は約2回に1回小ジャンプ。リンゴ・バケツ・ジャンプ台も活用してください。</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="screen game-screen hidden">
+      <canvas id="gameCanvas" width="1280" height="720" aria-label="ゲーム画面"></canvas>
+      <div id="hud">
+        <div class="score"><span id="blueScore">0</span><span>―</span><span id="redScore">0</span></div>
+        <div id="roleLabel" class="role-label">盾役</div>
+        <button id="restartButton" class="small">やり直す</button>
+      </div>
+      <div id="controls">
+        <div id="joystick" class="joystick"><div id="stick" class="stick"></div></div>
+        <div class="buttons">
+          <button id="buttonA" class="game-button a">A<br><span>盾</span></button>
+          <button id="buttonB" class="game-button b">B<br><span>交代</span></button>
+          <button id="buttonC" class="game-button c">C<br><span>リンゴ</span></button>
+        </div>
+      </div>
+      <div id="message" class="message hidden"></div>
+    </section>
+  </main>
+  <script type="module" src="js/game.js"></script>
 </body>
 </html>
