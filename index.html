@@ -48,13 +48,14 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.15　上向き水鉄砲の持ち方調整</div>
+      <div class="sub">v0.16　水を受けたスライム</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
-        この版では、まだスライムへの効果・発見判定・得点はありません。
+        水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
+        この版では、まだ発見判定・得点はありません。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -62,7 +63,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.15 上向き水鉄砲調整</span>
+      <span>v0.16 水を受けたスライム</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
     <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
@@ -128,7 +129,10 @@
     hopToX: TILE * 10.5,
     hopToY: TILE * 7.5,
     hopProgress: 0,
-    landingPulse: 0
+    landingPulse: 0,
+    forcedDir: null,
+    forcedHops: 0,
+    wetFlash: 0
   };
 
   const waterShots = [];
@@ -169,6 +173,9 @@
     slime.idleDuration = 0.45 + Math.random() * 0.75;
     slime.hopProgress = 0;
     slime.landingPulse = 0;
+    slime.forcedDir = null;
+    slime.forcedHops = 0;
+    slime.wetFlash = 0;
     slime.hopFromX = slime.x;
     slime.hopFromY = slime.y;
     slime.hopToX = slime.x;
@@ -247,7 +254,17 @@
     const cell=cellFromPosition(slime.x,slime.y);
     slime.x=cellCenterX(cell.x);
     slime.y=cellCenterY(cell.y);
-    const next=chooseSlimeDirection(cell.x,cell.y);
+
+    // 水を受けたあとは、水が飛んできた元の方向を数回優先する。
+    let next=null;
+    if(slime.forcedDir && slime.forcedHops>0 && canLeaveCell(cell.x,cell.y,slime.forcedDir)){
+      next=slime.forcedDir;
+      slime.forcedHops--;
+    }else{
+      slime.forcedDir=null;
+      slime.forcedHops=0;
+      next=chooseSlimeDirection(cell.x,cell.y);
+    }
     if(!next){
       slime.state='idle';
       slime.stateTime=0;
@@ -262,7 +279,7 @@
     slime.hopToX=cellCenterX(cell.x+d.x);
     slime.hopToY=cellCenterY(cell.y+d.y);
     slime.hopProgress=0;
-    slime.hopDuration=.42+Math.random()*.10;
+    slime.hopDuration=slime.forcedDir ? .66+Math.random()*.08 : .42+Math.random()*.10;
     slime.state='hop';
     slime.stateTime=0;
   }
@@ -270,6 +287,7 @@
   function updateSlime(dt){
     slime.wobble += dt * (slime.state==='idle' ? 2.2 : 5.5);
     slime.landingPulse=Math.max(0,slime.landingPulse-dt*4.5);
+    slime.wetFlash=Math.max(0,slime.wetFlash-dt*2.8);
     slime.stateTime+=dt;
 
     if(slime.state==='idle'){
@@ -290,7 +308,7 @@
         slime.state='idle';
         slime.stateTime=0;
         // ときどき長めにぼんやりする。
-        slime.idleDuration=Math.random()<.22 ? .9+Math.random()*1.0 : .22+Math.random()*.55;
+        slime.idleDuration=slime.forcedDir ? .28+Math.random()*.18 : (Math.random()<.22 ? .9+Math.random()*1.0 : .22+Math.random()*.55);
         slime.landingPulse=1;
       }
     }
@@ -329,6 +347,27 @@
       const ny=shot.y+shot.vy*dt;
       const c=cellFromPosition(nx,ny);
       if(shot.life<=0 || !isOpenCell(c.x,c.y)){
+        waterShots.splice(i,1);
+        continue;
+      }
+
+      // 水弾がスライムへ当たったかを、移動前後の線分で判定する。
+      const segX=nx-shot.x, segY=ny-shot.y;
+      const segLen2=segX*segX+segY*segY || 1;
+      const t=Math.max(0,Math.min(1,((slime.x-shot.x)*segX+(slime.y-shot.y)*segY)/segLen2));
+      const hitX=shot.x+segX*t, hitY=shot.y+segY*t;
+      const dx=slime.x-hitX, dy=slime.y-hitY;
+      if(dx*dx+dy*dy<24*24){
+        const sourceDir={up:'down',down:'up',left:'right',right:'left'}[shot.dir];
+        slime.facing=sourceDir;
+        slime.forcedDir=sourceDir;
+        slime.forcedHops=3;
+        slime.wetFlash=1;
+        // 待機中なら、短い驚きのあとすぐ誘導方向へ動き始める。
+        if(slime.state==='idle'){
+          slime.stateTime=0;
+          slime.idleDuration=.16;
+        }
         waterShots.splice(i,1);
         continue;
       }
@@ -600,6 +639,14 @@
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+
+    // 水が当たった直後だけ、表面を明るく光らせて命中を伝える。
+    if(slime.wetFlash>0){
+      ctx.fillStyle=`rgba(220,250,255,${slime.wetFlash*.42})`;
+      ctx.beginPath();
+      ctx.ellipse(0,0,18,17,0,0,Math.PI*2);
+      ctx.fill();
+    }
 
     // 地面に接している部分だけ少し濃くし、透明なゼリー感を出す。
     // ジャンプで浮くほど薄くなり、空中ではほぼ見えなくなる。
