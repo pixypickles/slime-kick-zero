@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-<title>スライム・キック・ゼロ - Hide & Guide</title>
+<title>スライム・キック・ゼロ - Hide & Guide v0.06</title>
 <style>
   :root{--bg:#163528;--panel:#fff7dc;--ink:#14251d;--accent:#2ba95f;--red:#e75a4f;--blue:#3a97db;}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -108,7 +108,7 @@ function reset(){
   player.x=playerStart.x;player.y=playerStart.y;player.dir='up';player.shotCd=0;player.crackerCd=0;
   spawnSlime(slimeStart.x,slimeStart.y,'left');
   ensureEntities();
-  updateHUD();restartBtn.style.display='none';running=true;last=performance.now();requestAnimationFrame(loop);
+  updateHUD();restartBtn.style.display='none';running=true;last=performance.now();draw();requestAnimationFrame(loop);
 }
 function spawnSlime(x,y,dir='left'){
   slimes.push({id:nextSlimeId++,x,y,r:22,hitR:15,dir,state:'wander',targetDir:dir,speed:46,hop:0,think:.25+Math.random()*.45,seen:false,followOffset:0,blink:0,waterPush:0});
@@ -264,7 +264,8 @@ function drawPlayer(){
   ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-6+d.x*3,-31+d.y*3,2.2,0,Math.PI*2);ctx.arc(6+d.x*3,-31+d.y*3,2.2,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle='#111';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(-8,27);ctx.lineTo(-10,43);ctx.moveTo(8,27);ctx.lineTo(10,43);ctx.stroke();
   // water pistol
-  ctx.save();ctx.rotate(d.a);ctx.fillStyle='#42bde6';ctx.strokeStyle='#111';ctx.lineWidth=5;roundRect(8,-6,28,13,5,true,true);ctx.fillStyle='#227ead';roundRect(17,5,10,16,4,true,true);ctx.restore();ctx.restore();
+  ctx.save();ctx.rotate(d.a);ctx.fillStyle='#42bde6';ctx.strokeStyle='#111';ctx.lineWidth=5;roundRect(8,-6,28,13,5,true,true);ctx.fillStyle='#227ead';roundRect(17,5,10,16,4,true,true);ctx.restore();
+  ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.strokeText('あなた',0,-54);ctx.fillStyle='#14251d';ctx.fillText('あなた',0,-54);ctx.restore();
 }
 function drawSlime(s){
   const jump=Math.max(0,Math.sin(s.hop))*5;
@@ -298,11 +299,30 @@ function drawSlime(s){
     eye(-10,-6,5.5);ctx.beginPath();ctx.arc(-17,5,4,.4,Math.PI-.3);ctx.stroke();
   }
   if(s.blink>0){ctx.fillStyle='rgba(120,210,255,.55)';ctx.beginPath();ctx.arc(0,-1,25,0,Math.PI*2);ctx.fill();}
+  ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.strokeText('スライム',0,-39);ctx.fillStyle='#14251d';ctx.fillText('スライム',0,-39);
   ctx.restore();
 }
 function drawFirecrackers(){for(const f of firecrackers){if(f.boom)continue;ctx.save();ctx.translate(f.x,f.y);ctx.fillStyle='#e94f45';ctx.strokeStyle='#111';ctx.lineWidth=4;roundRect(-8,-14,16,28,5,true,true);ctx.strokeStyle='#f5c64c';ctx.beginPath();ctx.moveTo(0,-14);ctx.quadraticCurveTo(8,-25,12,-18);ctx.stroke();ctx.restore();}}
 function drawParticles(){for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*1.8);ctx.fillStyle=p.type==='water'?'#73dbff':'#555';ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;}
-function roundRect(x,y,w,h,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill)ctx.fill();if(stroke)ctx.stroke();}
+function roundRect(x,y,w,h,r,fill,stroke){
+  // Safari/older Android browsers may not support CanvasRenderingContext2D.roundRect.
+  // Build the rounded rectangle path manually for broad mobile compatibility.
+  const rr=Math.max(0,Math.min(r,Math.abs(w)/2,Math.abs(h)/2));
+  const x2=x+w,y2=y+h;
+  ctx.beginPath();
+  ctx.moveTo(x+rr,y);
+  ctx.lineTo(x2-rr,y);
+  ctx.quadraticCurveTo(x2,y,x2,y+rr);
+  ctx.lineTo(x2,y2-rr);
+  ctx.quadraticCurveTo(x2,y2,x2-rr,y2);
+  ctx.lineTo(x+rr,y2);
+  ctx.quadraticCurveTo(x,y2,x,y2-rr);
+  ctx.lineTo(x,y+rr);
+  ctx.quadraticCurveTo(x,y,x+rr,y);
+  ctx.closePath();
+  if(fill)ctx.fill();
+  if(stroke)ctx.stroke();
+}
 function loop(t){if(!running)return;const dt=Math.min(.033,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop);}
 function setKey(code,on){keys[code]=on;}
 window.addEventListener('keydown',e=>{setKey(e.code,true);if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyJ'||e.code==='Space')fireWater();if(e.code==='KeyK')throwCracker();});
