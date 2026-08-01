@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.28</title>
+<title>SLIME KICK ZERO v0.29</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -507,8 +507,8 @@
     waterShots.push({
       x:player.x+muzzle.x,
       y:player.y+muzzle.y,
-      vx:d.x*92,
-      vy:d.y*92,
+      vx:d.x*120,
+      vy:d.y*120,
       dir,
       life:3.2,
       phase:Math.random()*Math.PI*2
@@ -785,8 +785,8 @@
 
     // 低い草むらの土台。箱ではなく、横に広がる葉の集まりにする。
     ctx.fillStyle='#2f8f45';
-    ctx.strokeStyle='#174f2b';
-    ctx.lineWidth=3.5;
+    ctx.strokeStyle='#102b18';
+    ctx.lineWidth=5;
     ctx.lineJoin='round';
     ctx.beginPath();
     ctx.moveTo(px+6,ground);
@@ -806,8 +806,8 @@
       [29,38,31,21],[35,36,39,24],[14,34,7,28],
       [32,34,42,29]
     ];
-    ctx.strokeStyle='#58c86a';
-    ctx.lineWidth=3.2;
+    ctx.strokeStyle='#63d071';
+    ctx.lineWidth=2.7;
     ctx.lineCap='round';
     for(const [x1,y1,x2,y2] of blades){
       ctx.beginPath();
