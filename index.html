@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.02</title>
+<title>SLIME KICK ZERO v0.03</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -38,10 +38,10 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.02　見えないレール</div>
+      <div class="sub">v0.03　先行入力レール</div>
       <div class="note">
-        通路の中央にある「見えないレール」を走ります。<br>
-        草の角に引っかからず、交差点で滑らかに曲がれるかを確認します。<br>
+        通路中央の見えないレールを走ります。<br>
+        曲がりたい方向を少し早めに押すと、交差点まで進んで自然に曲がります。<br>
         草は侵入できない固定ブロックです。
       </div>
       <button id="startBtn" type="button">試合開始</button>
@@ -50,7 +50,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.02 レール移動テスト</span>
+      <span>v0.03 先行入力テスト</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
     <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
@@ -97,7 +97,9 @@
     speed: 165,
     facing: 'down',
     moveDir: null,
-    queuedDir: null
+    queuedDir: null,
+    turnTarget: null,
+    lastMoveDir: 'up'
   };
 
   const keys = {up:false,down:false,left:false,right:false};
@@ -119,6 +121,8 @@
     player.facing = 'down';
     player.moveDir = null;
     player.queuedDir = null;
+    player.turnTarget = null;
+    player.lastMoveDir = 'up';
     pressOrder.length = 0;
   }
 
@@ -148,65 +152,110 @@
     return Math.abs(x-cellCenterX(c.x))<=tolerance && Math.abs(y-cellCenterY(c.y))<=tolerance;
   }
 
+  function isPerpendicular(a,b){
+    if(!a||!b) return false;
+    const da=DIRS[a],db=DIRS[b];
+    return da.x*db.x+da.y*db.y===0;
+  }
+
+  function findTurnTarget(dir, turnDir){
+    if(!dir||!turnDir||!isPerpendicular(dir,turnDir)) return null;
+    const d=DIRS[dir];
+    let c=cellFromPosition(player.x,player.y);
+    // 現在地から進行方向へ最大3マス先まで、曲がれる交差点を予約する。
+    for(let i=0;i<4;i++){
+      const cx=cellCenterX(c.x), cy=cellCenterY(c.y);
+      const ahead=(dir==='right' ? cx>=player.x-2 : dir==='left' ? cx<=player.x+2 : dir==='down' ? cy>=player.y-2 : cy<=player.y+2);
+      if(ahead && canLeaveCell(c.x,c.y,turnDir)){
+        const dist=Math.abs(cx-player.x)+Math.abs(cy-player.y);
+        if(dist<=TILE*1.15) return {x:cx,y:cy,cx:c.x,cy:c.y,dir:turnDir};
+      }
+      const nx=c.x+d.x, ny=c.y+d.y;
+      if(!isOpenCell(nx,ny)) break;
+      c={x:nx,y:ny};
+    }
+    return null;
+  }
+
   function update(dt){
     const desired=newestHeldDirection();
     if(desired){
       player.facing=desired;
       player.queuedDir=desired;
     }
-    if(!desired){
-      player.moveDir=null;
-      player.queuedDir=null;
-      return;
-    }
 
     let cell=cellFromPosition(player.x,player.y);
     const cx=cellCenterX(cell.x),cy=cellCenterY(cell.y);
-    const turnWindow=Math.max(7,player.speed*dt+3);
 
-    // 進行方向と直角の入力は、交差点まで予約して自然に曲がる。
     if(!player.moveDir){
-      if(canLeaveCell(cell.x,cell.y,desired)) player.moveDir=desired;
-    }else if(opposite(player.moveDir,desired)){
-      player.moveDir=desired;
-    }else if(desired!==player.moveDir && nearCellCenter(player.x,player.y,turnWindow) && canLeaveCell(cell.x,cell.y,desired)){
-      player.x=cx;player.y=cy;player.moveDir=desired;
+      if(desired && canLeaveCell(cell.x,cell.y,desired)){
+        player.moveDir=desired;
+        player.lastMoveDir=desired;
+      }else if(desired && player.lastMoveDir && isPerpendicular(player.lastMoveDir,desired)){
+        player.moveDir=player.lastMoveDir;
+        player.turnTarget=findTurnTarget(player.moveDir,desired);
+      }else{
+        return;
+      }
     }
 
-    if(!player.moveDir) return;
+    if(desired && opposite(player.moveDir,desired)){
+      player.moveDir=desired;
+      player.lastMoveDir=desired;
+      player.turnTarget=null;
+    }else if(desired && isPerpendicular(player.moveDir,desired)){
+      const t=findTurnTarget(player.moveDir,desired);
+      if(t) player.turnTarget=t;
+    }else if(desired===player.moveDir){
+      player.turnTarget=null;
+    }
 
-    // レールの中央へ吸着。これが草角への引っかかりを防ぐ。
-    const railPull=Math.min(1,dt*18);
+    // 予約がなければ、ボタンを離した時点で停止。
+    if(!desired && !player.turnTarget){
+      player.moveDir=null;
+      return;
+    }
+
+    // レール中央へ素早く吸着。
+    const railPull=Math.min(1,dt*24);
     if(player.moveDir==='left'||player.moveDir==='right') player.y+=(cy-player.y)*railPull;
     else player.x+=(cx-player.x)*railPull;
 
     let remaining=player.speed*dt;
     while(remaining>0.001 && player.moveDir){
       cell=cellFromPosition(player.x,player.y);
-      const centerX=cellCenterX(cell.x),centerY=cellCenterY(cell.y);
       const d=DIRS[player.moveDir];
+
+      if(player.turnTarget){
+        const axisPos=d.x?player.x:player.y;
+        const axisTarget=d.x?player.turnTarget.x:player.turnTarget.y;
+        const dist=Math.abs(axisTarget-axisPos);
+        const travel=Math.min(remaining,dist);
+        player.x+=d.x*travel;player.y+=d.y*travel;remaining-=travel;
+        if(dist<=travel+.01){
+          player.x=player.turnTarget.x;player.y=player.turnTarget.y;
+          player.moveDir=player.turnTarget.dir;
+          player.lastMoveDir=player.moveDir;
+          player.facing=player.moveDir;
+          player.turnTarget=null;
+          continue;
+        }
+        break;
+      }
+
+      const centerX=cellCenterX(cell.x),centerY=cellCenterY(cell.y);
       const targetBoundaryX=d.x>0?(cell.x+1)*TILE:d.x<0?cell.x*TILE:player.x;
       const targetBoundaryY=d.y>0?(cell.y+1)*TILE:d.y<0?cell.y*TILE:player.y;
-      let distanceToBoundary=d.x?Math.abs(targetBoundaryX-player.x):Math.abs(targetBoundaryY-player.y);
+      const distanceToBoundary=d.x?Math.abs(targetBoundaryX-player.x):Math.abs(targetBoundaryY-player.y);
       const travel=Math.min(remaining,distanceToBoundary+.001);
       player.x+=d.x*travel;player.y+=d.y*travel;remaining-=travel;
 
       if(travel>=distanceToBoundary-.002){
         const nextX=cell.x+d.x,nextY=cell.y+d.y;
         if(!isOpenCell(nextX,nextY)){
-          // 通路端ではマス中央まで戻して停止。壁へめり込まない。
           player.x=centerX;player.y=centerY;player.moveDir=null;break;
         }
-        // 境界を少し越えて次のセルへ。
         player.x+=d.x*.01;player.y+=d.y*.01;
-        const nextCenterX=cellCenterX(nextX),nextCenterY=cellCenterY(nextY);
-        const queued=newestHeldDirection();
-        if(queued && queued!==player.moveDir && !opposite(player.moveDir,queued)){
-          const atNextCenterDist=d.x?Math.abs(nextCenterX-player.x):Math.abs(nextCenterY-player.y);
-          if(atNextCenterDist<=turnWindow && canLeaveCell(nextX,nextY,queued)){
-            player.x=nextCenterX;player.y=nextCenterY;player.moveDir=queued;
-          }
-        }
       }
     }
   }
@@ -234,6 +283,11 @@
         }
       }else{
         ctx.fillStyle=(x+y)%2?'#e7d7ae':'#dfcca0';ctx.fillRect(px,py,TILE,TILE);
+        const exits=['up','down','left','right'].filter(dir=>canLeaveCell(x,y,dir)).length;
+        if(exits>=3){
+          ctx.fillStyle='rgba(255,246,196,.45)';
+          ctx.beginPath();ctx.arc(px+TILE/2,py+TILE/2,10,0,Math.PI*2);ctx.fill();
+        }
       }
     }
   }
@@ -241,6 +295,9 @@
   function drawPlayer(){
     const x=player.x,y=player.y;
     ctx.save();
+    ctx.translate(x,y);
+    ctx.scale(.72,.72);
+    ctx.translate(-x,-y);
     // shadow
     ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(x,y+18,17,7,0,0,Math.PI*2);ctx.fill();
     // body
