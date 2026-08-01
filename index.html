@@ -113,11 +113,19 @@
   const slime = {
     x: TILE * 11.5,
     y: TILE * 7.5,
-    speed: 72,
     facing: 'left',
     moveDir: 'left',
     wobble: 0,
-    decisionCooldown: 0
+    state: 'idle',
+    stateTime: 0,
+    idleDuration: 0.55,
+    hopDuration: 0.46,
+    hopFromX: TILE * 11.5,
+    hopFromY: TILE * 7.5,
+    hopToX: TILE * 10.5,
+    hopToY: TILE * 7.5,
+    hopProgress: 0,
+    landingPulse: 0
   };
 
   const keys = {up:false,down:false,left:false,right:false};
@@ -150,7 +158,15 @@
     slime.facing = 'left';
     slime.moveDir = 'left';
     slime.wobble = 0;
-    slime.decisionCooldown = 0;
+    slime.state = 'idle';
+    slime.stateTime = 0;
+    slime.idleDuration = 0.45 + Math.random() * 0.75;
+    slime.hopProgress = 0;
+    slime.landingPulse = 0;
+    slime.hopFromX = slime.x;
+    slime.hopFromY = slime.y;
+    slime.hopToX = slime.x;
+    slime.hopToY = slime.y;
   }
 
   function cellFromPosition(x,y){
@@ -219,44 +235,55 @@
     return choices[Math.floor(Math.random()*choices.length)];
   }
 
+  function beginSlimeHop(){
+    const cell=cellFromPosition(slime.x,slime.y);
+    slime.x=cellCenterX(cell.x);
+    slime.y=cellCenterY(cell.y);
+    const next=chooseSlimeDirection(cell.x,cell.y);
+    if(!next){
+      slime.state='idle';
+      slime.stateTime=0;
+      slime.idleDuration=.6+Math.random()*.8;
+      return;
+    }
+    const d=DIRS[next];
+    slime.moveDir=next;
+    slime.facing=next;
+    slime.hopFromX=slime.x;
+    slime.hopFromY=slime.y;
+    slime.hopToX=cellCenterX(cell.x+d.x);
+    slime.hopToY=cellCenterY(cell.y+d.y);
+    slime.hopProgress=0;
+    slime.hopDuration=.42+Math.random()*.10;
+    slime.state='hop';
+    slime.stateTime=0;
+  }
+
   function updateSlime(dt){
-    slime.wobble += dt * 8;
-    slime.decisionCooldown=Math.max(0,slime.decisionCooldown-dt);
-    let remaining=slime.speed*dt;
-    while(remaining>0.001){
-      const cell=cellFromPosition(slime.x,slime.y);
-      const cx=cellCenterX(cell.x),cy=cellCenterY(cell.y);
-      // レール中央へ吸着させる。
-      const pull=Math.min(1,dt*20);
-      if(slime.moveDir==='left'||slime.moveDir==='right') slime.y+=(cy-slime.y)*pull;
-      else slime.x+=(cx-slime.x)*pull;
+    slime.wobble += dt * (slime.state==='idle' ? 2.2 : 5.5);
+    slime.landingPulse=Math.max(0,slime.landingPulse-dt*4.5);
+    slime.stateTime+=dt;
 
-      // セル中央に来たときだけ次の方向を決める。
-      const centerDist=Math.abs(slime.x-cx)+Math.abs(slime.y-cy);
-      if(centerDist<1.6 && slime.decisionCooldown<=0){
-        slime.x=cx;slime.y=cy;
-        const next=chooseSlimeDirection(cell.x,cell.y);
-        if(next){slime.moveDir=next;slime.facing=next;}
-        slime.decisionCooldown=.12;
-      }
+    if(slime.state==='idle'){
+      if(slime.stateTime>=slime.idleDuration) beginSlimeHop();
+      return;
+    }
 
-      const d=DIRS[slime.moveDir];
-      if(!d){break;}
-      const boundaryX=d.x>0?(cell.x+1)*TILE:d.x<0?cell.x*TILE:slime.x;
-      const boundaryY=d.y>0?(cell.y+1)*TILE:d.y<0?cell.y*TILE:slime.y;
-      const dist=d.x?Math.abs(boundaryX-slime.x):Math.abs(boundaryY-slime.y);
-      const travel=Math.min(remaining,dist+.001);
-      slime.x+=d.x*travel;slime.y+=d.y*travel;remaining-=travel;
-      if(travel>=dist-.002){
-        const nx=cell.x+d.x,ny=cell.y+d.y;
-        if(!isOpenCell(nx,ny)){
-          slime.x=cx;slime.y=cy;
-          const next=chooseSlimeDirection(cell.x,cell.y);
-          if(!next) break;
-          slime.moveDir=next;slime.facing=next;slime.decisionCooldown=.12;
-        }else{
-          slime.x+=d.x*.01;slime.y+=d.y*.01;
-        }
+    if(slime.state==='hop'){
+      slime.hopProgress=Math.min(1,slime.stateTime/slime.hopDuration);
+      const t=slime.hopProgress;
+      // 滑るのではなく、1マスずつ小さく跳ねて進む。
+      const ease=t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+      slime.x=slime.hopFromX+(slime.hopToX-slime.hopFromX)*ease;
+      slime.y=slime.hopFromY+(slime.hopToY-slime.hopFromY)*ease;
+      if(t>=1){
+        slime.x=slime.hopToX;
+        slime.y=slime.hopToY;
+        slime.state='idle';
+        slime.stateTime=0;
+        // ときどき長めにぼんやりする。
+        slime.idleDuration=Math.random()<.22 ? .9+Math.random()*1.0 : .22+Math.random()*.55;
+        slime.landingPulse=1;
       }
     }
   }
@@ -422,8 +449,13 @@
 
   function drawSlime(){
     const x=slime.x,y=slime.y;
-    const bounce=Math.sin(slime.wobble)*1.6;
-    const squash=1+Math.sin(slime.wobble*2)*.035;
+    const hopArc=slime.state==='hop' ? Math.sin(slime.hopProgress*Math.PI)*13 : 0;
+    const idleBob=slime.state==='idle' ? Math.sin(slime.wobble)*.7 : 0;
+    const bounce=idleBob-hopArc;
+    const landing=slime.landingPulse;
+    const squash=slime.state==='hop'
+      ? 1-Math.sin(slime.hopProgress*Math.PI)*.07
+      : 1+landing*.13+Math.sin(slime.wobble*2)*.012;
     ctx.save();
     ctx.translate(x,y+bounce);
     ctx.scale(squash,1/squash);
