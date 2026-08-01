@@ -513,31 +513,28 @@
 
     // 上向きでは水鉄砲を身体の後ろに描き、大部分を隠す。
     if(player.facing==='up'){
+  // 水鉄砲は身体の後ろ側に描く
   drawGunAt(x,y,'up');
 
-  // 上向き時の腕。
-  // 肩から肘を経由して、水鉄砲の握り位置まで接続する。
+  // 右腕を肩から水鉄砲の持ち手へつなぐ
+  // 手は黒いミトン状にして、耳のように見えるのを防ぐ
   ctx.strokeStyle='#111';
   ctx.lineWidth=7;
   ctx.lineCap='round';
   ctx.lineJoin='round';
 
   ctx.beginPath();
-  ctx.moveTo(x+10,y+5);    // 肩
-  ctx.lineTo(x+18,y+1);    // 肘
-  ctx.lineTo(x+20,y-10);   // 手元
+  ctx.moveTo(x+10,y+5);   // 右肩
+  ctx.lineTo(x+16,y+1);   // 肘
+  ctx.lineTo(x+16,y-6);   // 水鉄砲の持ち手
   ctx.stroke();
 
-  // 手。水鉄砲の横へ重ねて「握っている」ように見せる。
-  ctx.fillStyle='#ffd7b0';
-  ctx.strokeStyle='#111';
-  ctx.lineWidth=4;
+  // 握っている手
+  ctx.fillStyle='#111';
   ctx.beginPath();
-  ctx.arc(x+20,y-10,4,0,Math.PI*2);
+  ctx.arc(x+16,y-6,4,0,Math.PI*2);
   ctx.fill();
-  ctx.stroke();
 }
-
     // body
     ctx.fillStyle='#5aa8ff';ctx.strokeStyle='#111';ctx.lineWidth=5;
     roundedRect(x-13,y-4,26,31,10);ctx.fill();ctx.stroke();
