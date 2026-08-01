@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.19</title>
+<title>SLIME KICK ZERO v0.20</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -35,10 +35,13 @@
   .dir{position:absolute;width:46px;height:46px;padding:0;border-radius:13px;background:#fff;border:4px solid #222;box-shadow:0 4px 0 #777;font-size:22px}
   .dir:active{box-shadow:0 1px 0 #777}
   #up{left:43px;top:0}#left{left:0;top:43px}#right{right:0;top:43px}#down{left:43px;bottom:0}
-  #actionPanel{display:flex;align-items:center;justify-content:center;gap:14px;flex-direction:column;text-align:center;font-weight:800;line-height:1.35}
-  #actionBtn{width:82px;height:82px;border-radius:50%;padding:0;background:#68d8ff;box-shadow:0 6px 0 #2787a8;font-size:28px;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-  #actionBtn:active{box-shadow:0 2px 0 #2787a8}
-  #actionHint{font-size:13px}
+  #actionPanel{display:flex;align-items:center;justify-content:center;gap:7px;flex-direction:column;text-align:center;font-weight:800;line-height:1.25}
+  #actionButtons{display:flex;gap:12px;align-items:center;justify-content:center}
+  .actionBtn{width:68px;height:68px;border-radius:50%;padding:0;font-size:25px;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  #actionBtn{background:#68d8ff;box-shadow:0 6px 0 #2787a8}
+  #firecrackerBtn{background:#ff966f;box-shadow:0 6px 0 #a84328}
+  .actionBtn:active{transform:translateY(4px)}
+  #actionHint{font-size:12px}
   .kbd{display:inline-block;padding:2px 6px;border:2px solid #222;border-radius:6px;background:white;margin:0 2px}
   @media (max-height:620px){#controls{height:126px}#dpad{transform:scale(.86)}#topbar{height:46px}}
 </style>
@@ -48,14 +51,14 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.19　相手の村へ導く</div>
+      <div class="sub">v0.20　爆竹</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。触れられると失点し、安全な位置から再開します。<br>右上の相手の村へスライムを導くと得点し、安全な位置から再開します。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。触れられると失点し、安全な位置から再開します。<br>右上の相手の村へスライムを導くと得点し、安全な位置から再開します。<br>Bボタンで爆竹を置けます。少し後に鳴り、茂み越しでもスライムが音の方向へ振り向きます。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -63,7 +66,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.19 相手の村へ導く</span>
+      <span>v0.20 爆竹</span>
       <span id="scoreDisplay">得点 0</span>
       <span id="missDisplay">失点 0</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
@@ -77,8 +80,8 @@
         <button class="dir" id="down" data-dir="down">▼</button>
       </div>
       <div id="actionPanel">
-        <button id="actionBtn" type="button" aria-label="水鉄砲">A</button>
-        <div id="actionHint">水鉄砲<br>PC：<span class="kbd">J</span> / <span class="kbd">Space</span></div>
+        <div id="actionButtons"><button id="actionBtn" class="actionBtn" type="button" aria-label="水鉄砲">A</button><button id="firecrackerBtn" class="actionBtn" type="button" aria-label="爆竹">B</button></div>
+        <div id="actionHint">A 水鉄砲：J / Space<br>B 爆竹：K</div>
       </div>
     </div>
   </section>
@@ -144,7 +147,10 @@
   };
 
   const waterShots = [];
+  const firecrackers = [];
+  const soundRings = [];
   let waterCooldown = 0;
+  let firecrackerCooldown = 0;
 
   const keys = {up:false,down:false,left:false,right:false};
   const pressOrder = [];
@@ -195,7 +201,10 @@
     slime.hopToX = slime.x;
     slime.hopToY = slime.y;
     waterShots.length = 0;
+    firecrackers.length = 0;
+    soundRings.length = 0;
     waterCooldown = 0;
+    firecrackerCooldown = 0;
   }
 
   function cellFromPosition(x,y){
@@ -298,6 +307,8 @@
     roundState='lost';
     roundTimer=1.05;
     waterShots.length=0;
+    firecrackers.length=0;
+    soundRings.length=0;
     player.moveDir=null;
     player.turnTarget=null;
     Object.keys(keys).forEach(k=>keys[k]=false);
@@ -317,6 +328,8 @@
     roundState='scored';
     roundTimer=1.05;
     waterShots.length=0;
+    firecrackers.length=0;
+    soundRings.length=0;
     player.moveDir=null;
     player.turnTarget=null;
     Object.keys(keys).forEach(k=>keys[k]=false);
@@ -511,6 +524,44 @@
     }
   }
 
+  function placeFirecracker(){
+    if(!running || roundState!=='play' || firecrackerCooldown>0) return;
+    const c=cellFromPosition(player.x,player.y);
+    firecrackers.push({
+      x:cellCenterX(c.x), y:cellCenterY(c.y), timer:1.0, phase:0
+    });
+    firecrackerCooldown=.65;
+  }
+
+  function directionTowardPoint(fromX,fromY,toX,toY){
+    const dx=toX-fromX, dy=toY-fromY;
+    if(Math.abs(dx)>Math.abs(dy)) return dx<0?'left':'right';
+    return dy<0?'up':'down';
+  }
+
+  function updateFirecrackers(dt){
+    firecrackerCooldown=Math.max(0,firecrackerCooldown-dt);
+    for(let i=firecrackers.length-1;i>=0;i--){
+      const f=firecrackers[i];
+      f.timer-=dt; f.phase+=dt*9;
+      if(f.timer<=0){
+        // 音は茂みに遮られない。スライムは即座に音源へ振り向く。
+        slime.facing=directionTowardPoint(slime.x,slime.y,f.x,f.y);
+        slime.moveDir=slime.facing;
+        if(slime.alertState==='warning'){
+          slime.alertState='none';
+          slime.alertTime=0;
+        }
+        soundRings.push({x:f.x,y:f.y,life:.55,maxLife:.55});
+        firecrackers.splice(i,1);
+      }
+    }
+    for(let i=soundRings.length-1;i>=0;i--){
+      soundRings[i].life-=dt;
+      if(soundRings[i].life<=0) soundRings.splice(i,1);
+    }
+  }
+
   function update(dt){
     if(roundState==='lost' || roundState==='scored'){
       roundTimer-=dt;
@@ -527,6 +578,7 @@
       return;
     }
     updateWater(dt);
+    updateFirecrackers(dt);
     const desired=newestHeldDirection();
     if(desired){
       player.facing=desired;
@@ -901,6 +953,26 @@
     }
   }
 
+  function drawFirecrackers(){
+    for(const f of firecrackers){
+      ctx.save();
+      ctx.translate(f.x,f.y+8);
+      ctx.rotate(Math.sin(f.phase)*.08);
+      ctx.fillStyle='#df4b34';ctx.strokeStyle='#111';ctx.lineWidth=3;
+      roundedRect(-8,-5,16,10,4);ctx.fill();ctx.stroke();
+      ctx.strokeStyle='#70411f';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(5,-5);ctx.quadraticCurveTo(10,-12,12,-8);ctx.stroke();
+      ctx.fillStyle=f.timer<.35?'#fff176':'#ff9d2e';ctx.beginPath();ctx.arc(12,-8,2.5,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+    }
+    for(const ring of soundRings){
+      const t=1-ring.life/ring.maxLife;
+      ctx.save();ctx.strokeStyle=`rgba(255,120,55,${1-t})`;ctx.lineWidth=5*(1-t)+1;
+      ctx.beginPath();ctx.arc(ring.x,ring.y,12+t*70,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle=`rgba(255,255,255,${1-t})`;ctx.font='900 20px system-ui';ctx.textAlign='center';ctx.fillText('パン！',ring.x,ring.y-18-t*10);
+      ctx.restore();
+    }
+  }
+
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     drawGround();
@@ -914,13 +986,16 @@
       }
     }
     for(const shot of waterShots) layers.push({depth:shot.y,kind:'water',shot});
+    for(const f of firecrackers) layers.push({depth:f.y+8,kind:'firecracker',f});
     layers.push({depth:player.y+19,kind:'player'});
     layers.push({depth:slime.y+19,kind:'slime'});
     layers.sort((a,b)=>a.depth-b.depth || (a.kind==='player'?-1:1));
     for(const item of layers){
       if(item.kind==='player') drawPlayer();
       else if(item.kind==='slime') drawSlime();
-      else if(item.kind==='water'){
+      else if(item.kind==='firecracker'){
+        const f=item.f;ctx.save();ctx.translate(f.x,f.y+8);ctx.rotate(Math.sin(f.phase)*.08);ctx.fillStyle='#df4b34';ctx.strokeStyle='#111';ctx.lineWidth=3;roundedRect(-8,-5,16,10,4);ctx.fill();ctx.stroke();ctx.strokeStyle='#70411f';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(5,-5);ctx.quadraticCurveTo(10,-12,12,-8);ctx.stroke();ctx.fillStyle=f.timer<.35?'#fff176':'#ff9d2e';ctx.beginPath();ctx.arc(12,-8,2.5,0,Math.PI*2);ctx.fill();ctx.restore();
+      }else if(item.kind==='water'){
         const original=waterShots;
         const shot=item.shot;
         ctx.save();ctx.translate(shot.x,shot.y+Math.sin(shot.phase)*1.2);
@@ -930,6 +1005,7 @@
         ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();ctx.arc(0,-2,1.5,0,Math.PI*2);ctx.fill();ctx.restore();
       }else drawBush(item.x,item.y);
     }
+    for(const ring of soundRings){const t=1-ring.life/ring.maxLife;ctx.save();ctx.strokeStyle=`rgba(255,120,55,${1-t})`;ctx.lineWidth=5*(1-t)+1;ctx.beginPath();ctx.arc(ring.x,ring.y,12+t*70,0,Math.PI*2);ctx.stroke();ctx.fillStyle=`rgba(255,255,255,${1-t})`;ctx.font='900 20px system-ui';ctx.textAlign='center';ctx.fillText('パン！',ring.x,ring.y-18-t*10);ctx.restore();}
     if(roundState==='lost'){
       ctx.save();
       ctx.fillStyle='rgba(255,255,255,.90)';
@@ -980,7 +1056,8 @@
   addEventListener('keydown',e=>{
     const k=keyMap[e.key];
     if(k){if(!keys[k])pressDirection(k);e.preventDefault();return;}
-    if(e.key==='j'||e.key==='J'||e.code==='Space'){if(!e.repeat)fireWater();e.preventDefault();}
+    if(e.key==='j'||e.key==='J'||e.code==='Space'){if(!e.repeat)fireWater();e.preventDefault();return;}
+    if(e.key==='k'||e.key==='K'){if(!e.repeat)placeFirecracker();e.preventDefault();}
   });
   addEventListener('keyup',e=>{const k=keyMap[e.key];if(k){releaseDirection(k);e.preventDefault();}});
 
@@ -994,8 +1071,11 @@
   controls.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 
   const actionBtn=document.getElementById('actionBtn');
+  const firecrackerBtn=document.getElementById('firecrackerBtn');
   actionBtn.addEventListener('pointerdown',e=>{e.preventDefault();fireWater();});
   actionBtn.addEventListener('contextmenu',e=>e.preventDefault());
+  firecrackerBtn.addEventListener('pointerdown',e=>{e.preventDefault();placeFirecracker();});
+  firecrackerBtn.addEventListener('contextmenu',e=>e.preventDefault());
 
   document.querySelectorAll('.dir').forEach(btn=>{
     const dir=btn.dataset.dir;
