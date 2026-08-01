@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.32</title>
+<title>SLIME KICK ZERO v0.31</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -51,7 +51,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.32　左右対称の生け垣</div>
+      <div class="sub">v0.31　丸い生け垣</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
@@ -66,7 +66,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.32 左右対称の生け垣</span>
+      <span>v0.31 丸い生け垣</span>
       <span id="scoreDisplay">得点 0</span>
       <span id="missDisplay">失点 0</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
@@ -774,64 +774,62 @@
   function drawBush(x,y){
     const px=x*TILE, py=y*TILE;
     const cx=px+TILE/2;
-    const baseY=py+TILE-7;
+    const baseY=py+TILE-8;
     ctx.save();
 
-    // 柔らかい地面の影。
+    // 柔らかい地面の影。横幅を抑えて隣の低木と重ならないようにする。
     ctx.fillStyle='rgba(31,76,29,.20)';
     ctx.beginPath();
-    ctx.ellipse(cx,baseY+5,TILE*.37,5.5,0,0,Math.PI*2);
+    ctx.ellipse(cx,baseY+5,TILE*.30,5,0,0,Math.PI*2);
     ctx.fill();
 
-    // 生け垣の根元。左右対称に見えるよう中央基準で描く。
+    // 生け垣の根元。
     ctx.fillStyle='#8a5a2b';
     ctx.strokeStyle='#102b18';
-    ctx.lineWidth=4.5;
+    ctx.lineWidth=4;
     ctx.lineJoin='round';
-    roundedRect(cx-17,baseY-7,34,11,4);
+    roundedRect(cx-15,baseY-6,30,10,4);
     ctx.fill();
     ctx.stroke();
 
-    // 丸い低木の外形。完全な左右対称のシルエット。
+    // 丸くまとまった左右対称の低木。1マス内に余白を残す。
     ctx.fillStyle='#4fae2d';
     ctx.strokeStyle='#102b18';
     ctx.lineWidth=5;
     ctx.lineJoin='round';
     ctx.beginPath();
-    ctx.moveTo(cx,py+8);
-    ctx.bezierCurveTo(cx-4,py+4,cx-10,py+7,cx-11,py+13);
-    ctx.bezierCurveTo(cx-18,py+10,cx-24,py+15,cx-22,py+22);
-    ctx.bezierCurveTo(cx-30,py+22,cx-32,py+31,cx-26,py+36);
-    ctx.bezierCurveTo(cx-28,baseY-3,cx-20,baseY,cx,baseY);
-    ctx.bezierCurveTo(cx+20,baseY,cx+28,baseY-3,cx+26,py+36);
-    ctx.bezierCurveTo(cx+32,py+31,cx+30,py+22,cx+22,py+22);
-    ctx.bezierCurveTo(cx+24,py+15,cx+18,py+10,cx+11,py+13);
-    ctx.bezierCurveTo(cx+10,py+7,cx+4,py+4,cx,py+8);
+    ctx.moveTo(cx-18,baseY-3);
+    ctx.quadraticCurveTo(cx-21,py+29,cx-15,py+24);
+    ctx.quadraticCurveTo(cx-18,py+17,cx-10,py+16);
+    ctx.quadraticCurveTo(cx-10,py+8,cx-2,py+11);
+    ctx.quadraticCurveTo(cx,py+4,cx+2,py+11);
+    ctx.quadraticCurveTo(cx+10,py+8,cx+10,py+16);
+    ctx.quadraticCurveTo(cx+18,py+17,cx+15,py+24);
+    ctx.quadraticCurveTo(cx+21,py+29,cx+18,baseY-3);
+    ctx.quadraticCurveTo(cx,baseY+2,cx-18,baseY-3);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    // 手前側の明るい葉。こちらも左右対称。
+    // 手前側の明るい葉。こちらも左右対称で丸くまとめる。
     ctx.fillStyle='#66c83b';
     ctx.beginPath();
-    ctx.moveTo(cx,py+20);
-    ctx.bezierCurveTo(cx-4,py+16,cx-9,py+18,cx-10,py+23);
-    ctx.bezierCurveTo(cx-16,py+20,cx-21,py+25,cx-19,py+30);
-    ctx.bezierCurveTo(cx-26,py+31,cx-25,py+37,cx-19,py+39);
-    ctx.bezierCurveTo(cx-16,baseY-5,cx-8,baseY-3,cx,baseY-3);
-    ctx.bezierCurveTo(cx+8,baseY-3,cx+16,baseY-5,cx+19,py+39);
-    ctx.bezierCurveTo(cx+25,py+37,cx+26,py+31,cx+19,py+30);
-    ctx.bezierCurveTo(cx+21,py+25,cx+16,py+20,cx+10,py+23);
-    ctx.bezierCurveTo(cx+9,py+18,cx+4,py+16,cx,py+20);
+    ctx.moveTo(cx-15,baseY-8);
+    ctx.quadraticCurveTo(cx-16,py+29,cx-10,py+27);
+    ctx.quadraticCurveTo(cx-8,py+20,cx-3,py+25);
+    ctx.quadraticCurveTo(cx,py+18,cx+3,py+25);
+    ctx.quadraticCurveTo(cx+8,py+20,cx+10,py+27);
+    ctx.quadraticCurveTo(cx+16,py+29,cx+15,baseY-8);
+    ctx.quadraticCurveTo(cx,baseY-3,cx-15,baseY-8);
     ctx.closePath();
     ctx.fill();
 
     // 下側の厚み。
     ctx.fillStyle='rgba(24,112,38,.45)';
     ctx.beginPath();
-    ctx.moveTo(cx-24,baseY-4);
-    ctx.quadraticCurveTo(cx,baseY+3,cx+24,baseY-4);
-    ctx.quadraticCurveTo(cx+17,baseY+1,cx-17,baseY+1);
+    ctx.moveTo(cx-17,baseY-3);
+    ctx.quadraticCurveTo(cx,baseY+2,cx+17,baseY-3);
+    ctx.quadraticCurveTo(cx+13,baseY+1,cx-13,baseY+1);
     ctx.closePath();
     ctx.fill();
 
@@ -1015,17 +1013,17 @@
       else eyes=[[-7,-5],[7,-5]];
       for(const [ex,ey] of eyes){
         ctx.fillStyle='#111';
-        ctx.beginPath();ctx.arc(ex,ey,2.75,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(ex,ey,3.25,0,Math.PI*2);ctx.fill();
         ctx.fillStyle='rgba(255,255,255,.92)';
-        ctx.beginPath();ctx.arc(ex-.75,ey-.9,.65,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(ex-.9,ey-1.05,.82,0,Math.PI*2);ctx.fill();
       }
       ctx.strokeStyle='#111';
       ctx.lineWidth=2.4;
       ctx.lineCap='round';
       ctx.beginPath();
-      if(slime.facing==='left') ctx.arc(-7,2.5,4.3,.12*Math.PI,.80*Math.PI);
-      else if(slime.facing==='right') ctx.arc(7,2.5,4.3,.20*Math.PI,.88*Math.PI);
-      else ctx.arc(0,2.5,5,.15*Math.PI,.85*Math.PI);
+      if(slime.facing==='left') ctx.arc(-7,5,4.3,.12*Math.PI,.80*Math.PI);
+      else if(slime.facing==='right') ctx.arc(7,5,4.3,.20*Math.PI,.88*Math.PI);
+      else ctx.arc(0,5,5,.15*Math.PI,.85*Math.PI);
       ctx.stroke();
     }
     ctx.restore();
