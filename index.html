@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.20</title>
+<title>SLIME KICK ZERO v0.21</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -51,14 +51,14 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.20　爆竹</div>
+      <div class="sub">v0.21　2匹目のスライム</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。触れられると失点し、安全な位置から再開します。<br>右上の相手の村へスライムを導くと得点し、安全な位置から再開します。<br>Bボタンで爆竹を置けます。少し後に鳴り、茂み越しでもスライムが音の方向へ振り向きます。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。触れられると失点し、安全な位置から再開します。<br>右上の相手の村へスライムを導くと得点し、安全な位置から再開します。<br>Bボタンで爆竹を置けます。<br>約18秒後に2匹目のスライムが現れます。少し後に鳴り、茂み越しでもスライムが音の方向へ振り向きます。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -66,7 +66,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.20 爆竹</span>
+      <span>v0.21 2匹目のスライム</span>
       <span id="scoreDisplay">得点 0</span>
       <span id="missDisplay">失点 0</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
@@ -122,29 +122,19 @@
     lastMoveDir: 'up'
   };
 
-  const slime = {
-    x: TILE * 11.5,
-    y: TILE * 7.5,
-    facing: 'left',
-    moveDir: 'left',
-    wobble: 0,
-    state: 'idle',
-    stateTime: 0,
-    idleDuration: 0.55,
-    hopDuration: 0.46,
-    hopFromX: TILE * 11.5,
-    hopFromY: TILE * 7.5,
-    hopToX: TILE * 10.5,
-    hopToY: TILE * 7.5,
-    hopProgress: 0,
-    landingPulse: 0,
-    forcedDir: null,
-    forcedHops: 0,
-    wetFlash: 0,
-    alertState: 'none',
-    alertTime: 0,
-    alertDuration: 0.8
-  };
+  function createSlime(x=TILE*11.5,y=TILE*7.5,facing='left'){
+    return {
+      x,y,facing,moveDir:facing,wobble:0,state:'idle',stateTime:0,
+      idleDuration:0.45+Math.random()*0.75,hopDuration:0.46,
+      hopFromX:x,hopFromY:y,hopToX:x,hopToY:y,hopProgress:0,
+      landingPulse:0,forcedDir:null,forcedHops:0,wetFlash:0,
+      alertState:'none',alertTime:0,alertDuration:0.8
+    };
+  }
+  let slime=createSlime();
+  const slimes=[slime];
+  let secondSlimeTimer=18;
+
 
   const waterShots = [];
   const firecrackers = [];
@@ -181,31 +171,28 @@
   }
 
   function resetSlime(){
-    slime.x = TILE * 11.5;
-    slime.y = TILE * 7.5;
-    slime.facing = 'left';
-    slime.moveDir = 'left';
-    slime.wobble = 0;
-    slime.state = 'idle';
-    slime.stateTime = 0;
-    slime.idleDuration = 0.45 + Math.random() * 0.75;
-    slime.hopProgress = 0;
-    slime.landingPulse = 0;
-    slime.forcedDir = null;
-    slime.forcedHops = 0;
-    slime.wetFlash = 0;
-    slime.alertState = 'none';
-    slime.alertTime = 0;
-    slime.hopFromX = slime.x;
-    slime.hopFromY = slime.y;
-    slime.hopToX = slime.x;
-    slime.hopToY = slime.y;
+    slimes.length=0;
+    slime=createSlime(TILE*11.5,TILE*7.5,'left');
+    slimes.push(slime);
+    secondSlimeTimer=18;
     waterShots.length = 0;
     firecrackers.length = 0;
     soundRings.length = 0;
     waterCooldown = 0;
     firecrackerCooldown = 0;
   }
+
+  function spawnSecondSlime(){
+    if(slimes.length>=2) return;
+    const candidates=[
+      {x:TILE*11.5,y:TILE*1.5,facing:'down'},
+      {x:TILE*9.5,y:TILE*5.5,facing:'left'},
+      {x:TILE*7.5,y:TILE*7.5,facing:'up'}
+    ];
+    const spot=candidates.find(c=>Math.hypot(c.x-player.x,c.y-player.y)>TILE*4) || candidates[0];
+    slimes.push(createSlime(spot.x,spot.y,spot.facing));
+  }
+
 
   function cellFromPosition(x,y){
     return {x:Math.floor(x/TILE),y:Math.floor(y/TILE)};
@@ -500,26 +487,30 @@
         continue;
       }
 
-      // 水弾がスライムへ当たったかを、移動前後の線分で判定する。
+      // 水弾がどれかのスライムへ当たったかを、移動前後の線分で判定する。
       const segX=nx-shot.x, segY=ny-shot.y;
       const segLen2=segX*segX+segY*segY || 1;
-      const t=Math.max(0,Math.min(1,((slime.x-shot.x)*segX+(slime.y-shot.y)*segY)/segLen2));
-      const hitX=shot.x+segX*t, hitY=shot.y+segY*t;
-      const dx=slime.x-hitX, dy=slime.y-hitY;
-      if(dx*dx+dy*dy<24*24){
-        const sourceDir={up:'down',down:'up',left:'right',right:'left'}[shot.dir];
-        slime.facing=sourceDir;
-        slime.forcedDir=sourceDir;
-        slime.forcedHops=3;
-        slime.wetFlash=1;
-        // 待機中なら、短い驚きのあとすぐ誘導方向へ動き始める。
-        if(slime.state==='idle'){
-          slime.stateTime=0;
-          slime.idleDuration=.16;
+      let hit=false;
+      for(const target of slimes){
+        const t=Math.max(0,Math.min(1,((target.x-shot.x)*segX+(target.y-shot.y)*segY)/segLen2));
+        const hitX=shot.x+segX*t, hitY=shot.y+segY*t;
+        const dx=target.x-hitX, dy=target.y-hitY;
+        if(dx*dx+dy*dy<24*24){
+          const sourceDir={up:'down',down:'up',left:'right',right:'left'}[shot.dir];
+          target.facing=sourceDir;
+          target.forcedDir=sourceDir;
+          target.forcedHops=3;
+          target.wetFlash=1;
+          if(target.state==='idle'){
+            target.stateTime=0;
+            target.idleDuration=.16;
+          }
+          waterShots.splice(i,1);
+          hit=true;
+          break;
         }
-        waterShots.splice(i,1);
-        continue;
       }
+      if(hit) continue;
       shot.x=nx;shot.y=ny;
     }
   }
@@ -545,12 +536,14 @@
       const f=firecrackers[i];
       f.timer-=dt; f.phase+=dt*9;
       if(f.timer<=0){
-        // 音は茂みに遮られない。スライムは即座に音源へ振り向く。
-        slime.facing=directionTowardPoint(slime.x,slime.y,f.x,f.y);
-        slime.moveDir=slime.facing;
-        if(slime.alertState==='warning'){
-          slime.alertState='none';
-          slime.alertTime=0;
+        // 音は茂みに遮られない。全スライムが即座に音源へ振り向く。
+        for(const target of slimes){
+          target.facing=directionTowardPoint(target.x,target.y,f.x,f.y);
+          target.moveDir=target.facing;
+          if(target.alertState==='warning'){
+            target.alertState='none';
+            target.alertTime=0;
+          }
         }
         soundRings.push({x:f.x,y:f.y,life:.55,maxLife:.55});
         firecrackers.splice(i,1);
@@ -571,11 +564,16 @@
       }
       return;
     }
-    updateDetection(dt);
-    updateSlime(dt);
-    if(slimeReachedGoal()){
-      triggerScore();
-      return;
+    secondSlimeTimer-=dt;
+    if(secondSlimeTimer<=0 && slimes.length<2) spawnSecondSlime();
+    for(const target of slimes){
+      slime=target;
+      updateDetection(dt);
+      updateSlime(dt);
+      if(slimeReachedGoal()){
+        triggerScore();
+        return;
+      }
     }
     updateWater(dt);
     updateFirecrackers(dt);
@@ -988,11 +986,11 @@
     for(const shot of waterShots) layers.push({depth:shot.y,kind:'water',shot});
     for(const f of firecrackers) layers.push({depth:f.y+8,kind:'firecracker',f});
     layers.push({depth:player.y+19,kind:'player'});
-    layers.push({depth:slime.y+19,kind:'slime'});
+    for(const target of slimes) layers.push({depth:target.y+19,kind:'slime',slime:target});
     layers.sort((a,b)=>a.depth-b.depth || (a.kind==='player'?-1:1));
     for(const item of layers){
       if(item.kind==='player') drawPlayer();
-      else if(item.kind==='slime') drawSlime();
+      else if(item.kind==='slime'){ slime=item.slime; drawSlime(); }
       else if(item.kind==='firecracker'){
         const f=item.f;ctx.save();ctx.translate(f.x,f.y+8);ctx.rotate(Math.sin(f.phase)*.08);ctx.fillStyle='#df4b34';ctx.strokeStyle='#111';ctx.lineWidth=3;roundedRect(-8,-5,16,10,4);ctx.fill();ctx.stroke();ctx.strokeStyle='#70411f';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(5,-5);ctx.quadraticCurveTo(10,-12,12,-8);ctx.stroke();ctx.fillStyle=f.timer<.35?'#fff176':'#ff9d2e';ctx.beginPath();ctx.arc(12,-8,2.5,0,Math.PI*2);ctx.fill();ctx.restore();
       }else if(item.kind==='water'){
