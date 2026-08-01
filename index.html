@@ -2,336 +2,233 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-<title>スライム・キック・ゼロ - Hide & Guide v0.06</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>SLIME KICK ZERO v0.01</title>
 <style>
-  :root{--bg:#163528;--panel:#fff7dc;--ink:#14251d;--accent:#2ba95f;--red:#e75a4f;--blue:#3a97db;}
+  :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;min-height:100%;background:linear-gradient(#173e2d,#102b22);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);overflow:auto}
-  body{display:flex;justify-content:center;align-items:flex-start;padding:12px 8px 24px}
-  #app{width:min(100%,980px)}
-  .screen{background:var(--panel);border:5px solid #17261f;border-radius:24px;box-shadow:0 14px 35px #0008;overflow:hidden}
-  #title{padding:20px;min-height:calc(100dvh - 36px);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:14px}
-  h1{margin:0;font-size:clamp(34px,8vw,74px);line-height:.95;letter-spacing:.02em;color:#258f50;text-shadow:0 4px 0 #fff,0 7px 0 #17261f}
-  .sub{font-weight:900;font-size:clamp(17px,3.8vw,27px)}
-  .story{max-width:700px;line-height:1.75;font-weight:700;background:#fff;border:3px solid #17261f;border-radius:18px;padding:13px 16px}
-  .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:min(100%,620px)}
-  .card{background:#fff;border:3px solid #17261f;border-radius:16px;padding:10px;font-weight:800}
-  button{font:inherit;font-weight:900;border:4px solid #17261f;border-radius:18px;cursor:pointer;box-shadow:0 6px 0 #17261f;touch-action:manipulation}
-  button:active{transform:translateY(4px);box-shadow:0 2px 0 #17261f}
-  #start{background:#56ce70;padding:14px 34px;font-size:clamp(21px,5vw,32px);margin-bottom:8px}
-  #game{display:none;position:relative;background:#132f25}
-  #hud{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:8px;background:#fbf1d0;border-bottom:4px solid #17261f;font-weight:900;flex-wrap:wrap}
-  .pill{border:3px solid #17261f;border-radius:999px;padding:6px 12px;background:#fff;white-space:nowrap}
-  #canvasWrap{position:relative;background:#17392c;overflow:hidden}
-  canvas{display:block;width:100%;height:auto;image-rendering:auto;touch-action:none}
-  #mobileUI{position:absolute;inset:0;pointer-events:none}
-  #dpad{position:absolute;left:13px;bottom:13px;width:158px;height:158px;pointer-events:auto}
-  .dir{position:absolute;width:54px;height:54px;background:#ffffffd9;color:#17261f;border-width:3px;border-radius:14px;box-shadow:0 4px 0 #17261f;font-size:25px;padding:0}
-  #up{left:52px;top:0} #down{left:52px;bottom:0} #left{left:0;top:52px} #right{right:0;top:52px}
-  #actions{position:absolute;right:14px;bottom:18px;display:flex;gap:12px;align-items:flex-end;pointer-events:auto}
-  .action{width:88px;height:88px;border-radius:50%;color:#fff;font-size:17px;line-height:1.05;padding:0}
-  #btnA{background:#2d9fe7} #btnB{background:#ef6459}
-  #message{position:absolute;left:50%;top:56px;transform:translateX(-50%);background:#17261fee;color:#fff;border:3px solid #fff;border-radius:16px;padding:8px 16px;font-size:clamp(16px,3vw,24px);font-weight:900;pointer-events:none;opacity:0;transition:opacity .18s;white-space:nowrap}
-  #restart{display:none;background:#ffd052;padding:8px 16px;font-size:18px}
-  .small{font-size:13px;opacity:.8}
-  @media (max-width:560px){
-    body{padding:4px 3px 12px}.screen{border-width:3px;border-radius:16px}#hud{font-size:13px;padding:5px;gap:4px}.pill{padding:4px 8px;border-width:2px}
-    #dpad{width:135px;height:135px}.dir{width:47px;height:47px}#up{left:44px}#down{left:44px}#left{top:44px}#right{top:44px}
-    .action{width:76px;height:76px;font-size:15px}#actions{right:8px;bottom:12px;gap:8px}
-  }
+  html,body{margin:0;height:100%;overflow:hidden;background:#18261d;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink)}
+  body{display:flex;justify-content:center;align-items:center}
+  #app{width:min(100vw,720px);height:100dvh;min-height:100%;background:#243d2a;position:relative;overflow:hidden}
+  .screen{position:absolute;inset:0;display:none}
+  .screen.active{display:flex}
+  #title{align-items:center;justify-content:center;padding:24px;overflow-y:auto;background:linear-gradient(#8fd2ff,#e9f8ff 35%,#7dbd58 35%,#4f8b42)}
+  .card{width:min(92%,520px);background:rgba(255,255,255,.92);border:5px solid #222;border-radius:24px;padding:22px;text-align:center;box-shadow:0 10px 0 rgba(0,0,0,.24)}
+  h1{font-size:clamp(28px,7vw,52px);line-height:1;margin:4px 0 10px;letter-spacing:.04em}
+  .sub{font-weight:800;margin-bottom:18px}
+  .note{font-size:14px;line-height:1.7;margin:14px 0 20px}
+  button{font:inherit;font-weight:900;border:4px solid #222;background:var(--accent);border-radius:16px;padding:14px 22px;box-shadow:0 6px 0 #8b6b00;cursor:pointer}
+  button:active{transform:translateY(4px);box-shadow:0 2px 0 #8b6b00}
+  #game{flex-direction:column;background:#203a27}
+  #topbar{height:54px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--ui);border-bottom:4px solid #222;font-weight:900;z-index:2}
+  #canvasWrap{position:relative;flex:1;min-height:0;background:#1d3022;display:flex;align-items:center;justify-content:center;padding:8px}
+  canvas{display:block;background:#d7c28f;border:5px solid #111;border-radius:12px;max-width:100%;max-height:100%;image-rendering:auto;touch-action:none}
+  #controls{height:150px;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#efe3bd;border-top:4px solid #222}
+  #dpad{position:relative;width:132px;height:132px;margin:auto}
+  .dir{position:absolute;width:46px;height:46px;padding:0;border-radius:13px;background:#fff;border:4px solid #222;box-shadow:0 4px 0 #777;font-size:22px}
+  .dir:active{box-shadow:0 1px 0 #777}
+  #up{left:43px;top:0}#left{left:0;top:43px}#right{right:0;top:43px}#down{left:43px;bottom:0}
+  #infoPanel{display:flex;align-items:center;justify-content:center;text-align:center;font-weight:800;line-height:1.5}
+  .kbd{display:inline-block;padding:2px 6px;border:2px solid #222;border-radius:6px;background:white;margin:0 2px}
+  @media (max-height:620px){#controls{height:126px}#dpad{transform:scale(.86)}#topbar{height:46px}}
 </style>
 </head>
 <body>
 <div id="app">
-  <section id="title" class="screen">
-    <h1>SLIME<br>KICK ZERO</h1>
-    <div class="sub">HIDE &amp; GUIDE</div>
-    <div class="story">蹴らない時代の、新しいスライム競技。<br>草の角に隠れ、静かな水鉄砲でスライムを村へ導こう。見つかると懐かれてしまい、自分の村までついて来られる。</div>
-    <div class="controls">
-      <div class="card">移動<br>上下左右のみ</div>
-      <div class="card">A：水鉄砲<br><span class="small">無音・遅い水弾</span></div>
-      <div class="card">B：爆竹<br><span class="small">全員が音へ振り向く</span></div>
-      <div class="card">草<br><span class="small">侵入不可・視界を遮る</span></div>
+  <section id="title" class="screen active">
+    <div class="card">
+      <h1>SLIME KICK ZERO</h1>
+      <div class="sub">v0.01　歩くだけ</div>
+      <div class="note">
+        今回は土台確認版です。<br>
+        草は侵入できない固定ブロック。<br>
+        上下左右だけで、人が通路を気持ちよく歩けるかを確認します。
+      </div>
+      <button id="startBtn" type="button">試合開始</button>
     </div>
-    <button id="start">試合開始</button>
   </section>
 
   <section id="game" class="screen">
-    <div id="hud">
-      <div class="pill">得点 <span id="score">0</span></div>
-      <div class="pill">失点 <span id="miss">0</span></div>
-      <div class="pill">残り <span id="time">90</span>秒</div>
-      <div class="pill">スライム <span id="slimeCount">1</span>匹</div>
-      <button id="restart">もう一度</button>
+    <div id="topbar">
+      <span>v0.01 歩行テスト</span>
+      <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
-    <div id="canvasWrap">
-      <canvas id="c" width="900" height="650"></canvas>
-      <div id="message"></div>
-      <div id="mobileUI">
-        <div id="dpad">
-          <button class="dir" id="up">▲</button><button class="dir" id="down">▼</button><button class="dir" id="left">◀</button><button class="dir" id="right">▶</button>
-        </div>
-        <div id="actions"><button class="action" id="btnA">A<br>水鉄砲</button><button class="action" id="btnB">B<br>爆竹</button></div>
+    <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
+    <div id="controls">
+      <div id="dpad">
+        <button class="dir" id="up" data-dir="up">▲</button>
+        <button class="dir" id="left" data-dir="left">◀</button>
+        <button class="dir" id="right" data-dir="right">▶</button>
+        <button class="dir" id="down" data-dir="down">▼</button>
+      </div>
+      <div id="infoPanel">
+        スマホ：方向ボタン<br>
+        PC：<span class="kbd">↑↓←→</span> または <span class="kbd">WASD</span><br>
+        斜め移動はありません
       </div>
     </div>
   </section>
 </div>
 <script>
 (() => {
-'use strict';
-const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
-const title=document.getElementById('title'),gameEl=document.getElementById('game');
-const scoreEl=document.getElementById('score'),missEl=document.getElementById('miss'),timeEl=document.getElementById('time'),countEl=document.getElementById('slimeCount');
-const msgEl=document.getElementById('message'),restartBtn=document.getElementById('restart');
-const W=canvas.width,H=canvas.height,CELL=65,COLS=13,ROWS=9,OX=(W-COLS*CELL)/2,OY=(H-ROWS*CELL)/2;
-const DIRS={up:{x:0,y:-1,a:-Math.PI/2},down:{x:0,y:1,a:Math.PI/2},left:{x:-1,y:0,a:Math.PI},right:{x:1,y:0,a:0}};
-let keys={},running=false,last=0,remaining=90,score=0,miss=0,spawnTimer=24,visionGrace=0;
-let projectiles=[],firecrackers=[],particles=[],slimes=[];
-let nextSlimeId=1;
-const grass=[];
-for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(c%2===1&&r%2===1)grass.push({c,r});
-const cellCenter=(c,r)=>({x:OX+(c+.5)*CELL,y:OY+(r+.5)*CELL});
-const passageCells=[];
-for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(!(c%2===1&&r%2===1))passageCells.push({c,r});
-function randomPassageCell(preferRight=false){
-  const candidates=passageCells.filter(({c,r})=>r>0&&r<ROWS-1&&(!preferRight||c>=COLS-3));
-  return candidates[Math.floor(Math.random()*candidates.length)]||{c:COLS-2,r:0};
-}
-const playerStart=cellCenter(2,ROWS-2);
-const slimeStart=cellCenter(COLS-3,1);
-const player={x:playerStart.x,y:playerStart.y,r:19,hitR:15,dir:'up',speed:190,shotCd:0,crackerCd:0};
-const home={x:OX+CELL*.18,y:OY+CELL*(ROWS-1.6),w:35,h:105};
-const goal={x:OX+CELL*(COLS-.72),y:OY+CELL*.55,w:48,h:115};
-function reset(){
-  score=0;miss=0;remaining=90;spawnTimer=22;visionGrace=1.2;projectiles=[];firecrackers=[];particles=[];slimes=[];nextSlimeId=1;
-  player.x=playerStart.x;player.y=playerStart.y;player.dir='up';player.shotCd=0;player.crackerCd=0;
-  spawnSlime(slimeStart.x,slimeStart.y,'left');
-  ensureEntities();
-  updateHUD();restartBtn.style.display='none';running=true;last=performance.now();draw();requestAnimationFrame(loop);
-}
-function spawnSlime(x,y,dir='left'){
-  slimes.push({id:nextSlimeId++,x,y,r:22,hitR:15,dir,state:'wander',targetDir:dir,speed:46,hop:0,think:.25+Math.random()*.45,seen:false,followOffset:0,blink:0,waterPush:0});
-}
+  'use strict';
+  const title = document.getElementById('title');
+  const game = document.getElementById('game');
+  const startBtn = document.getElementById('startBtn');
+  const backBtn = document.getElementById('backBtn');
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
 
-function safeSlimeSpawn(){
-  const candidates=passageCells.filter(({c,r})=>{
-    if(r<=0||r>=ROWS-1||c<Math.floor(COLS/2))return false;
-    const p=cellCenter(c,r);
-    return Math.hypot(p.x-player.x,p.y-player.y)>CELL*4 && !lineBlocked(p.x,p.y,player.x,player.y);
+  const COLS = 13, ROWS = 9, TILE = 48;
+  canvas.width = COLS * TILE;
+  canvas.height = ROWS * TILE;
+
+  // 1=草ブロック、0=通路。外周と偶数座標の交点に規則正しく草を配置。
+  const map = Array.from({length:ROWS}, (_, y) => Array.from({length:COLS}, (_, x) => {
+    if (x === 0 || y === 0 || x === COLS-1 || y === ROWS-1) return 1;
+    if (x % 2 === 0 && y % 2 === 0) return 1;
+    return 0;
+  }));
+
+  const player = {
+    x: TILE * 1.5,
+    y: TILE * 1.5,
+    radius: 15,
+    speed: 155,
+    facing: 'down'
+  };
+
+  const keys = {up:false,down:false,left:false,right:false};
+  let running = false;
+  let last = performance.now();
+
+  function setScreen(which){
+    title.classList.toggle('active', which === 'title');
+    game.classList.toggle('active', which === 'game');
+  }
+
+  function resetPlayer(){
+    player.x = TILE * 1.5;
+    player.y = TILE * 1.5;
+    player.facing = 'down';
+  }
+
+  function isBlockedAt(px, py){
+    const points = [
+      [px-player.radius, py-player.radius], [px+player.radius, py-player.radius],
+      [px-player.radius, py+player.radius], [px+player.radius, py+player.radius]
+    ];
+    return points.some(([x,y]) => {
+      const cx = Math.floor(x / TILE), cy = Math.floor(y / TILE);
+      return !map[cy] || map[cy][cx] !== 0;
+    });
+  }
+
+  function update(dt){
+    let dx = 0, dy = 0;
+    // 斜め禁止。縦入力を優先し、なければ横入力。
+    if (keys.up !== keys.down) {
+      dy = keys.up ? -1 : 1;
+      player.facing = keys.up ? 'up' : 'down';
+    } else if (keys.left !== keys.right) {
+      dx = keys.left ? -1 : 1;
+      player.facing = keys.left ? 'left' : 'right';
+    }
+    const step = player.speed * dt;
+    if (dx) {
+      const nx = player.x + dx * step;
+      if (!isBlockedAt(nx, player.y)) player.x = nx;
+    }
+    if (dy) {
+      const ny = player.y + dy * step;
+      if (!isBlockedAt(player.x, ny)) player.y = ny;
+    }
+  }
+
+  function roundedRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+  }
+
+  function drawMap(){
+    ctx.fillStyle = '#d9c698'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+      const px=x*TILE, py=y*TILE;
+      if(map[y][x]===1){
+        ctx.fillStyle='#244d2b';
+        roundedRect(px+3,py+3,TILE-6,TILE-6,10);ctx.fill();
+        ctx.lineWidth=4;ctx.strokeStyle='#111';ctx.stroke();
+        ctx.strokeStyle='#69a94f';ctx.lineWidth=3;
+        for(let i=0;i<4;i++){
+          const gx=px+11+i*8;
+          ctx.beginPath();ctx.moveTo(gx,py+37);ctx.lineTo(gx-3,py+15+(i%2)*5);ctx.stroke();
+        }
+      }else{
+        ctx.fillStyle=(x+y)%2?'#e7d7ae':'#dfcca0';ctx.fillRect(px,py,TILE,TILE);
+      }
+    }
+  }
+
+  function drawPlayer(){
+    const x=player.x,y=player.y;
+    ctx.save();
+    // shadow
+    ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(x,y+18,17,7,0,0,Math.PI*2);ctx.fill();
+    // body
+    ctx.fillStyle='#5aa8ff';ctx.strokeStyle='#111';ctx.lineWidth=5;
+    roundedRect(x-13,y-4,26,31,10);ctx.fill();ctx.stroke();
+    // legs
+    ctx.lineCap='round';ctx.lineWidth=6;
+    ctx.beginPath();ctx.moveTo(x-7,y+23);ctx.lineTo(x-9,y+34);ctx.moveTo(x+7,y+23);ctx.lineTo(x+9,y+34);ctx.stroke();
+    // arms
+    ctx.beginPath();ctx.moveTo(x-12,y+4);ctx.lineTo(x-22,y+14);ctx.moveTo(x+12,y+4);ctx.lineTo(x+22,y+14);ctx.stroke();
+    // head
+    ctx.fillStyle='#ffd7b0';ctx.beginPath();ctx.arc(x,y-17,17,0,Math.PI*2);ctx.fill();ctx.stroke();
+    // eyes, always present
+    let ex=0,ey=0;
+    if(player.facing==='left')ex=-3;if(player.facing==='right')ex=3;if(player.facing==='up')ey=-2;if(player.facing==='down')ey=2;
+    ctx.fillStyle='#111';
+    ctx.beginPath();ctx.arc(x-6+ex,y-19+ey,2.8,0,Math.PI*2);ctx.arc(x+6+ex,y-19+ey,2.8,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawMap();
+    drawPlayer();
+  }
+
+  function loop(now){
+    if(!running) return;
+    const dt=Math.min((now-last)/1000,.033);last=now;
+    update(dt);draw();requestAnimationFrame(loop);
+  }
+
+  function start(){
+    resetPlayer();setScreen('game');running=true;last=performance.now();draw();requestAnimationFrame(loop);
+  }
+  function stop(){running=false;Object.keys(keys).forEach(k=>keys[k]=false);setScreen('title');}
+
+  startBtn.addEventListener('click',start);
+  backBtn.addEventListener('click',stop);
+
+  const keyMap={ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down',ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right'};
+  addEventListener('keydown',e=>{const k=keyMap[e.key];if(k){keys[k]=true;e.preventDefault();}});
+  addEventListener('keyup',e=>{const k=keyMap[e.key];if(k){keys[k]=false;e.preventDefault();}});
+
+  document.querySelectorAll('.dir').forEach(btn=>{
+    const dir=btn.dataset.dir;
+    const on=e=>{e.preventDefault();keys[dir]=true;};
+    const off=e=>{e.preventDefault();keys[dir]=false;};
+    btn.addEventListener('pointerdown',on);
+    btn.addEventListener('pointerup',off);
+    btn.addEventListener('pointercancel',off);
+    btn.addEventListener('pointerleave',off);
   });
-  const pick=candidates[Math.floor(Math.random()*candidates.length)]||{c:COLS-3,r:1};
-  return cellCenter(pick.c,pick.r);
-}
-function ensureEntities(){
-  if(!Number.isFinite(player.x)||!Number.isFinite(player.y)||cellBlocked(player.x,player.y,player.hitR)){
-    player.x=playerStart.x;player.y=playerStart.y;player.dir='up';
-  }
-  if(slimes.length===0){const p=safeSlimeSpawn();spawnSlime(p.x,p.y,'left');}
-  for(const s of slimes){
-    if(!Number.isFinite(s.x)||!Number.isFinite(s.y)||cellBlocked(s.x,s.y,s.hitR)){
-      const p=safeSlimeSpawn();s.x=p.x;s.y=p.y;s.dir='left';s.state='wander';s.think=.3;
-    }
-  }
-}
-function cellBlocked(x,y,r=10){
-  if(x-r<OX||x+r>OX+COLS*CELL||y-r<OY||y+r>OY+ROWS*CELL)return true;
-  for(const g of grass){const gx=OX+g.c*CELL,gy=OY+g.r*CELL;if(circleRect(x,y,r,gx+4,gy+4,CELL-8,CELL-8))return true;}
-  return false;
-}
-function circleRect(cx,cy,cr,rx,ry,rw,rh){const nx=Math.max(rx,Math.min(cx,rx+rw)),ny=Math.max(ry,Math.min(cy,ry+rh));return (cx-nx)**2+(cy-ny)**2<cr*cr;}
-function tryMove(o,dx,dy,dt){
-  // Move in small steps, and gently pull the character toward the centre of
-  // the corridor. This prevents snagging on the rounded corners of grass.
-  const radius=o.hitR||o.r;
-  const totalX=dx*dt,totalY=dy*dt;
-  const steps=Math.max(1,Math.ceil(Math.max(Math.abs(totalX),Math.abs(totalY))/4));
-  const sx=totalX/steps,sy=totalY/steps;
-  for(let i=0;i<steps;i++){
-    if(Math.abs(sx)>Math.abs(sy)){
-      const row=Math.round((o.y-OY-CELL*.5)/CELL);
-      const centreY=OY+(row+.5)*CELL;
-      const nudge=Math.max(-2.4,Math.min(2.4,centreY-o.y));
-      if(Math.abs(centreY-o.y)<CELL*.28&&!cellBlocked(o.x,o.y+nudge,radius))o.y+=nudge;
-      if(!cellBlocked(o.x+sx,o.y,radius))o.x+=sx;
-      else{
-        // Corner assist: try a small perpendicular slide before giving up.
-        const signs=[Math.sign(centreY-o.y)||1,-(Math.sign(centreY-o.y)||1)];
-        for(const sign of signs){if(!cellBlocked(o.x,o.y+sign*3,radius)&&!cellBlocked(o.x+sx,o.y+sign*3,radius)){o.y+=sign*3;o.x+=sx;break;}}
-      }
-    }else if(Math.abs(sy)>0){
-      const col=Math.round((o.x-OX-CELL*.5)/CELL);
-      const centreX=OX+(col+.5)*CELL;
-      const nudge=Math.max(-2.4,Math.min(2.4,centreX-o.x));
-      if(Math.abs(centreX-o.x)<CELL*.28&&!cellBlocked(o.x+nudge,o.y,radius))o.x+=nudge;
-      if(!cellBlocked(o.x,o.y+sy,radius))o.y+=sy;
-      else{
-        const signs=[Math.sign(centreX-o.x)||1,-(Math.sign(centreX-o.x)||1)];
-        for(const sign of signs){if(!cellBlocked(o.x+sign*3,o.y,radius)&&!cellBlocked(o.x+sign*3,o.y+sy,radius)){o.x+=sign*3;o.y+=sy;break;}}
-      }
-    }
-  }
-}
-function lineBlocked(x1,y1,x2,y2){
-  const steps=Math.ceil(Math.hypot(x2-x1,y2-y1)/8);
-  for(let i=1;i<steps;i++){const t=i/steps,x=x1+(x2-x1)*t,y=y1+(y2-y1)*t;for(const g of grass){const rx=OX+g.c*CELL+3,ry=OY+g.r*CELL+3;if(x>rx&&x<rx+CELL-6&&y>ry&&y<ry+CELL-6)return true;}}
-  return false;
-}
-function canSee(s,tx,ty){
-  const d=Math.hypot(tx-s.x,ty-s.y);if(d>CELL*3.7||lineBlocked(s.x,s.y,tx,ty))return false;
-  const dir=DIRS[s.dir],vx=(tx-s.x)/d,vy=(ty-s.y)/d;return dir.x*vx+dir.y*vy>.42;
-}
-function fireWater(){
-  if(!running||player.shotCd>0)return;player.shotCd=.48;
-  const d=DIRS[player.dir];projectiles.push({x:player.x+d.x*25,y:player.y+d.y*25,vx:d.x*112,vy:d.y*112,r:7,life:4,dir:player.dir});
-  splash(player.x+d.x*24,player.y+d.y*24,2);
-}
-function throwCracker(){
-  if(!running||player.crackerCd>0)return;player.crackerCd=2.8;const d=DIRS[player.dir];
-  let x=player.x+d.x*70,y=player.y+d.y*70;if(cellBlocked(x,y,7)){x=player.x+d.x*35;y=player.y+d.y*35;}
-  firecrackers.push({x,y,t:1.15,boom:false,life:2.2});showMessage('爆竹を置いた！');
-}
-function splash(x,y,n=9){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,sp=35+Math.random()*80;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.35+Math.random()*.35,size:2+Math.random()*4,type:'water'});}}
-function smoke(x,y){for(let i=0;i<18;i++){const a=Math.random()*Math.PI*2,sp=25+Math.random()*90;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.5+Math.random()*.5,size:3+Math.random()*6,type:'smoke'});}}
-function update(dt){
-  remaining-=dt;visionGrace=Math.max(0,visionGrace-dt);if(remaining<=0){remaining=0;endGame();return;}
-  ensureEntities();
-  spawnTimer-=dt;if(spawnTimer<=0&&slimes.length<3){spawnTimer=22+Math.random()*12;const spot=randomPassageCell(true),pos=cellCenter(spot.c,spot.r);spawnSlime(pos.x,pos.y,'left');showMessage('新しいスライム！');}
-  player.shotCd=Math.max(0,player.shotCd-dt);player.crackerCd=Math.max(0,player.crackerCd-dt);
-  let md=null;if(keys.ArrowUp||keys.KeyW)md='up';else if(keys.ArrowDown||keys.KeyS)md='down';else if(keys.ArrowLeft||keys.KeyA)md='left';else if(keys.ArrowRight||keys.KeyD)md='right';
-  if(md){player.dir=md;const d=DIRS[md];tryMove(player,d.x*player.speed,d.y*player.speed,dt);}
-  for(const p of projectiles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;if(cellBlocked(p.x,p.y,p.r)){p.life=0;splash(p.x,p.y,5);continue;}
-    for(const s of slimes){if(p.life>0&&Math.hypot(p.x-s.x,p.y-s.y)<p.r+s.r){p.life=0;splash(p.x,p.y,12);const reverse={up:'down',down:'up',left:'right',right:'left'};s.targetDir=reverse[p.dir];s.dir=s.targetDir;s.state='water';s.waterPush=2.6;s.think=2.8;s.blink=.25;break;}}
-  }
-  projectiles=projectiles.filter(p=>p.life>0);
-  for(const f of firecrackers){f.t-=dt;f.life-=dt;if(!f.boom&&f.t<=0){f.boom=true;smoke(f.x,f.y);showMessage('パンッ！');for(const s of slimes){const dx=f.x-s.x,dy=f.y-s.y;if(Math.abs(dx)>Math.abs(dy))s.dir=dx<0?'left':'right';else s.dir=dy<0?'up':'down';s.state='startled';s.think=1.5;}}}
-  firecrackers=firecrackers.filter(f=>f.life>0);
-  for(const s of slimes){
-    s.hop=(s.hop+dt*(s.state==='follow'?8:5))%(Math.PI*2);s.blink=Math.max(0,s.blink-dt);
-    if(visionGrace<=0&&s.state!=='follow'&&canSee(s,player.x,player.y)){
-      // 見つかった時点でスライムが駆け寄った扱いにして即失点。
-      miss++;showMessage('見つかった！ スライムがついて来た… -1');respawnSlime(s);continue;
-    }
-    if(s.state==='follow'){
-      const dx=player.x-s.x,dy=player.y-s.y,d=Math.hypot(dx,dy)||1;
-      if(Math.abs(dx)>Math.abs(dy))s.dir=dx<0?'left':'right';else s.dir=dy<0?'up':'down';
-      tryMove(s,dx/d*76,dy/d*76,dt);
-      if(circleRect(s.x,s.y,s.r,home.x-20,home.y,home.w+35,home.h)){miss++;showMessage('自分の村までついて来た… -1');respawnSlime(s);}
-    }else{
-      s.think-=dt;if(s.state==='water'){s.waterPush-=dt;if(s.waterPush<=0){s.state='wander';s.think=.5;}}
-      if(s.think<=0){
-        s.think=.35+Math.random()*.65;
-        // 進める方向だけから選び、立ち止まる時間を作らない。
-        const names=['up','down','left','right'];
-        const valid=names.filter(n=>{const q=DIRS[n];return !cellBlocked(s.x+q.x*20,s.y+q.y*20,s.hitR);});
-        const forward=valid.includes(s.dir)&&Math.random()<.58?s.dir:null;
-        s.dir=forward||valid[Math.floor(Math.random()*valid.length)]||s.dir;
-        s.state='wander';
-      }
-      const d=DIRS[s.dir],spd=s.state==='water'?38:34;
-      const ox=s.x,oy=s.y;tryMove(s,d.x*spd,d.y*spd,dt);
-      if(Math.abs(s.x-ox)+Math.abs(s.y-oy)<.35){
-        const names=['up','down','left','right'];
-        const valid=names.filter(n=>{const q=DIRS[n];return !cellBlocked(s.x+q.x*22,s.y+q.y*22,s.hitR);});
-        s.dir=valid[Math.floor(Math.random()*valid.length)]||s.dir;s.think=.05;
-      }
-      if(circleRect(s.x,s.y,s.r,goal.x,goal.y,goal.w,goal.h)){score++;showMessage('村へ案内できた！ +1');respawnSlime(s);}
-    }
-  }
-  for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt;}
-  particles=particles.filter(p=>p.life>0);updateHUD();
-}
-function respawnSlime(s){const pos=safeSlimeSpawn();s.x=pos.x;s.y=pos.y;s.dir='left';s.state='wander';s.seen=false;s.think=.25+Math.random()*.35;s.waterPush=0;visionGrace=.8;}
-function endGame(){running=false;restartBtn.style.display='inline-block';showMessage(`終了！ 得点 ${score} / 失点 ${miss}`);}
-function showMessage(t){msgEl.textContent=t;msgEl.style.opacity=1;clearTimeout(showMessage.t);showMessage.t=setTimeout(()=>msgEl.style.opacity=0,1500);}
-function updateHUD(){scoreEl.textContent=score;missEl.textContent=miss;timeEl.textContent=Math.ceil(remaining);countEl.textContent=slimes.length;}
-function draw(){
-  ensureEntities();
-  ctx.clearRect(0,0,W,H);ctx.fillStyle='#a9df72';ctx.fillRect(0,0,W,H);
-  drawVillages();drawGrass();drawFirecrackers();drawProjectiles();for(const s of slimes)drawSlime(s);drawPlayer();drawParticles();
-}
-function drawGrid(){ctx.save();ctx.strokeStyle='rgba(49,92,52,.12)';ctx.lineWidth=1;for(let c=0;c<=COLS;c++){ctx.beginPath();ctx.moveTo(OX+c*CELL,OY);ctx.lineTo(OX+c*CELL,OY+ROWS*CELL);ctx.stroke()}for(let r=0;r<=ROWS;r++){ctx.beginPath();ctx.moveTo(OX,OY+r*CELL);ctx.lineTo(OX+COLS*CELL,OY+r*CELL);ctx.stroke()}ctx.restore();}
-function drawVillages(){
-  ctx.save();ctx.lineWidth=6;ctx.strokeStyle='#151f19';ctx.fillStyle='#6aa8db';roundRect(home.x-9,home.y,home.w+18,home.h,14,true,true);ctx.fillStyle='#264b75';roundRect(home.x+2,home.y+17,home.w-4,home.h-34,12,true,false);ctx.fillStyle='#fff';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.fillText('自分の村',home.x+home.w/2,home.y-10);
-  ctx.fillStyle='#ef736a';roundRect(goal.x,goal.y,goal.w,goal.h,16,true,true);ctx.fillStyle='#723b3b';roundRect(goal.x+8,goal.y+18,goal.w-16,goal.h-36,12,true,false);ctx.fillStyle='#17261f';ctx.fillText('相手の村',goal.x+goal.w/2,goal.y-10);ctx.restore();
-}
-function drawGrass(){for(const g of grass){const x=OX+g.c*CELL+5,y=OY+g.r*CELL+5,w=CELL-10,h=CELL-10;ctx.save();ctx.fillStyle='#48a83e';ctx.strokeStyle='#14251d';ctx.lineWidth=5;roundRect(x,y,w,h,12,true,true);ctx.fillStyle='#69cf4f';for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(x+9+i*9,y+h-8);ctx.quadraticCurveTo(x+7+i*9,y+18-(i%2)*6,x+17+i*7,y+10+(i%3)*4);ctx.lineTo(x+18+i*7,y+h-8);ctx.fill();}ctx.restore();}}
-function drawPlayer(){
-  const d=DIRS[player.dir],bob=Math.sin(performance.now()/110)*1.3;ctx.save();ctx.translate(player.x,player.y+bob);ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111';ctx.lineWidth=6;
-  ctx.fillStyle='#f06b58';roundRect(-15,-10,30,38,10,true,true);ctx.fillStyle='#f4c7a1';ctx.beginPath();ctx.arc(0,-29,18,0,Math.PI*2);ctx.fill();ctx.stroke();
-  // eyes always visible, shifted toward facing direction
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-6+d.x*2,-31+d.y*2,4.7,0,Math.PI*2);ctx.arc(6+d.x*2,-31+d.y*2,4.7,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#111';ctx.lineWidth=2.5;ctx.stroke();
-  ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-6+d.x*3,-31+d.y*3,2.2,0,Math.PI*2);ctx.arc(6+d.x*3,-31+d.y*3,2.2,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle='#111';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(-8,27);ctx.lineTo(-10,43);ctx.moveTo(8,27);ctx.lineTo(10,43);ctx.stroke();
-  // water pistol
-  ctx.save();ctx.rotate(d.a);ctx.fillStyle='#42bde6';ctx.strokeStyle='#111';ctx.lineWidth=5;roundRect(8,-6,28,13,5,true,true);ctx.fillStyle='#227ead';roundRect(17,5,10,16,4,true,true);ctx.restore();
-  ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.strokeText('あなた',0,-54);ctx.fillStyle='#14251d';ctx.fillText('あなた',0,-54);ctx.restore();
-}
-function drawSlime(s){
-  const jump=Math.max(0,Math.sin(s.hop))*5;
-  const pulse=Math.sin(s.hop)*.035;
-  ctx.save();ctx.translate(s.x,s.y-jump);ctx.scale(1-pulse,1+pulse);
-  ctx.lineJoin='round';ctx.lineCap='round';ctx.strokeStyle='#111';ctx.lineWidth=6;
-  ctx.fillStyle='#59d65f';
-
-  // 低くて丸い、ぷにっとしたシルエット。
-  ctx.beginPath();
-  ctx.moveTo(-25,12);
-  ctx.bezierCurveTo(-28,2,-25,-12,-16,-18);
-  ctx.bezierCurveTo(-10,-25,-4,-27,0,-22);
-  ctx.bezierCurveTo(6,-29,14,-24,17,-18);
-  ctx.bezierCurveTo(27,-12,29,1,25,12);
-  ctx.bezierCurveTo(18,22,8,22,0,19);
-  ctx.bezierCurveTo(-9,24,-19,21,-25,12);
-  ctx.closePath();ctx.fill();ctx.stroke();
-
-  const eye=(x,y,r=5)=>{ctx.fillStyle='#111';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x-1.6,y-1.7,1.25,0,Math.PI*2);ctx.fill();};
-  ctx.strokeStyle='#111';ctx.lineWidth=3;
-  if(s.dir==='down'){
-    eye(-8,-6);eye(8,-6);
-    ctx.beginPath();ctx.arc(0,5,6,.15,Math.PI-.15);ctx.stroke();
-  }else if(s.dir==='up'){
-    // 背中側。顔は見せず、小さなつやだけ。
-    ctx.fillStyle='rgba(255,255,255,.32)';ctx.beginPath();ctx.ellipse(-7,-14,5,2.4,-.35,0,Math.PI*2);ctx.fill();
-  }else if(s.dir==='right'){
-    eye(10,-6,5.5);ctx.beginPath();ctx.arc(17,5,4,.3,Math.PI-.4);ctx.stroke();
-  }else{
-    eye(-10,-6,5.5);ctx.beginPath();ctx.arc(-17,5,4,.4,Math.PI-.3);ctx.stroke();
-  }
-  if(s.blink>0){ctx.fillStyle='rgba(120,210,255,.55)';ctx.beginPath();ctx.arc(0,-1,25,0,Math.PI*2);ctx.fill();}
-  ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.strokeText('スライム',0,-39);ctx.fillStyle='#14251d';ctx.fillText('スライム',0,-39);
-  ctx.restore();
-}
-function drawFirecrackers(){for(const f of firecrackers){if(f.boom)continue;ctx.save();ctx.translate(f.x,f.y);ctx.fillStyle='#e94f45';ctx.strokeStyle='#111';ctx.lineWidth=4;roundRect(-8,-14,16,28,5,true,true);ctx.strokeStyle='#f5c64c';ctx.beginPath();ctx.moveTo(0,-14);ctx.quadraticCurveTo(8,-25,12,-18);ctx.stroke();ctx.restore();}}
-function drawParticles(){for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*1.8);ctx.fillStyle=p.type==='water'?'#73dbff':'#555';ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;}
-function roundRect(x,y,w,h,r,fill,stroke){
-  // Safari/older Android browsers may not support CanvasRenderingContext2D.roundRect.
-  // Build the rounded rectangle path manually for broad mobile compatibility.
-  const rr=Math.max(0,Math.min(r,Math.abs(w)/2,Math.abs(h)/2));
-  const x2=x+w,y2=y+h;
-  ctx.beginPath();
-  ctx.moveTo(x+rr,y);
-  ctx.lineTo(x2-rr,y);
-  ctx.quadraticCurveTo(x2,y,x2,y+rr);
-  ctx.lineTo(x2,y2-rr);
-  ctx.quadraticCurveTo(x2,y2,x2-rr,y2);
-  ctx.lineTo(x+rr,y2);
-  ctx.quadraticCurveTo(x,y2,x,y2-rr);
-  ctx.lineTo(x,y+rr);
-  ctx.quadraticCurveTo(x,y,x+rr,y);
-  ctx.closePath();
-  if(fill)ctx.fill();
-  if(stroke)ctx.stroke();
-}
-function loop(t){if(!running)return;const dt=Math.min(.033,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop);}
-function setKey(code,on){keys[code]=on;}
-window.addEventListener('keydown',e=>{setKey(e.code,true);if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyJ'||e.code==='Space')fireWater();if(e.code==='KeyK')throwCracker();});
-window.addEventListener('keyup',e=>setKey(e.code,false));
-function bindHold(id,code){const el=document.getElementById(id);const on=e=>{e.preventDefault();setKey(code,true)},off=e=>{e.preventDefault();setKey(code,false)};el.addEventListener('pointerdown',on);el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);el.addEventListener('pointerleave',off);}
-bindHold('up','ArrowUp');bindHold('down','ArrowDown');bindHold('left','ArrowLeft');bindHold('right','ArrowRight');
-document.getElementById('btnA').addEventListener('pointerdown',e=>{e.preventDefault();fireWater()});document.getElementById('btnB').addEventListener('pointerdown',e=>{e.preventDefault();throwCracker()});
-document.getElementById('start').addEventListener('click',()=>{title.style.display='none';gameEl.style.display='block';window.scrollTo(0,0);reset();});restartBtn.addEventListener('click',reset);
-draw();
+  draw();
 })();
 </script>
 </body>
