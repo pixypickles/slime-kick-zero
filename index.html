@@ -3,10 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.04</title>
+<title>SLIME KICK ZERO v0.05</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  /* スマホで長押ししても選択・コピー・翻訳メニューを出さない */
+  #game,#controls,#dpad,.dir,#topbar,canvas{
+    -webkit-user-select:none;user-select:none;
+    -webkit-touch-callout:none;
+    touch-action:none;
+  }
+  .dir{-webkit-user-drag:none}
   html,body{margin:0;height:100%;overflow:hidden;background:#18261d;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink)}
   body{display:flex;justify-content:center;align-items:center}
   #app{width:min(100vw,720px);height:100dvh;min-height:100%;background:#243d2a;position:relative;overflow:hidden}
@@ -38,11 +45,12 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.04　レール＋茂み描画</div>
+      <div class="sub">v0.05　スマホ長押し対策</div>
       <div class="note">
         通路中央の見えないレールを走ります。<br>
         曲がりたい方向を少し早めに押すと、交差点まで進んで自然に曲がります。<br>
-        茂みは通れませんが、手前に来るとキャラの下半身を隠します。
+        茂みは通れませんが、手前に来るとキャラの下半身を隠します。<br>
+        方向ボタンを長押ししても選択メニューは表示されません。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -50,7 +58,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.04 レール＋茂み</span>
+      <span>v0.05 レール＋茂み</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
     <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
@@ -382,14 +390,33 @@
   addEventListener('keydown',e=>{const k=keyMap[e.key];if(k){if(!keys[k])pressDirection(k);e.preventDefault();}});
   addEventListener('keyup',e=>{const k=keyMap[e.key];if(k){releaseDirection(k);e.preventDefault();}});
 
+  const controls=document.getElementById('controls');
+
+  // Android/iOSの長押し選択、コンテキストメニュー、ドラッグを抑止。
+  ['contextmenu','selectstart','dragstart'].forEach(type=>{
+    controls.addEventListener(type,e=>e.preventDefault());
+  });
+  controls.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+  controls.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+
   document.querySelectorAll('.dir').forEach(btn=>{
     const dir=btn.dataset.dir;
-    const on=e=>{e.preventDefault();pressDirection(dir);};
-    const off=e=>{e.preventDefault();releaseDirection(dir);};
+    btn.setAttribute('aria-label',dir);
+    const on=e=>{
+      e.preventDefault();
+      if(btn.setPointerCapture && e.pointerId!==undefined){
+        try{btn.setPointerCapture(e.pointerId);}catch(_){}
+      }
+      pressDirection(dir);
+    };
+    const off=e=>{
+      e.preventDefault();
+      releaseDirection(dir);
+    };
     btn.addEventListener('pointerdown',on);
     btn.addEventListener('pointerup',off);
     btn.addEventListener('pointercancel',off);
-    btn.addEventListener('pointerleave',off);
+    btn.addEventListener('lostpointercapture',off);
   });
   draw();
 })();
