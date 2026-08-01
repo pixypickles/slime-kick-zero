@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.10</title>
+<title>SLIME KICK ZERO v0.11</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -48,7 +48,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.10　ゆっくり水鉄砲</div>
+      <div class="sub">v0.11　4方向の水鉄砲</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
@@ -62,7 +62,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.10 ゆっくり水鉄砲</span>
+      <span>v0.11 4方向の水鉄砲</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
     <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
@@ -296,13 +296,22 @@
     }
   }
 
+  function getMuzzlePosition(){
+    // drawPlayer() の縮尺込みで、見えている銃口の先端に合わせる。
+    if(player.facing==='right') return {x:player.x+31,y:player.y+6};
+    if(player.facing==='left')  return {x:player.x-31,y:player.y+6};
+    if(player.facing==='down')  return {x:player.x+7,y:player.y+25};
+    return {x:player.x+7,y:player.y-27};
+  }
+
   function fireWater(){
     if(!running || waterCooldown>0) return;
     const dir=player.facing || 'down';
     const d=DIRS[dir];
+    const muzzle=getMuzzlePosition();
     waterShots.push({
-      x:player.x+d.x*24,
-      y:player.y+d.y*24-3,
+      x:muzzle.x,
+      y:muzzle.y,
       vx:d.x*92,
       vy:d.y*92,
       dir,
@@ -463,14 +472,36 @@
     ctx.restore();
   }
 
+  function drawGunLocal(anchorX,anchorY,angle,showHandle=true){
+    ctx.save();
+    ctx.translate(anchorX,anchorY);
+    ctx.rotate(angle);
+    ctx.fillStyle='#43c8f0';ctx.strokeStyle='#111';ctx.lineWidth=4;ctx.lineJoin='round';
+    roundedRect(-8,-7,22,14,5);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#197ca3';
+    roundedRect(12,-3,10,6,2);ctx.fill();ctx.stroke();
+    if(showHandle){
+      ctx.fillStyle='#2a91b8';
+      roundedRect(-3,5,7,10,2);ctx.fill();ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function drawPlayer(){
     const x=player.x,y=player.y;
     ctx.save();
     ctx.translate(x,y);
     ctx.scale(.72,.72);
     ctx.translate(-x,-y);
+
     // shadow
     ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(x,y+18,17,7,0,0,Math.PI*2);ctx.fill();
+
+    // 上向きでは水鉄砲を身体の向こう側に描き、胴体と頭で大部分を隠す。
+    if(player.facing==='up'){
+      drawGunLocal(x+10,y-5,-Math.PI/2,false);
+    }
+
     // body
     ctx.fillStyle='#5aa8ff';ctx.strokeStyle='#111';ctx.lineWidth=5;
     roundedRect(x-13,y-4,26,31,10);ctx.fill();ctx.stroke();
@@ -481,28 +512,28 @@
     ctx.beginPath();ctx.moveTo(x-12,y+4);ctx.lineTo(x-22,y+14);ctx.moveTo(x+12,y+4);ctx.lineTo(x+22,y+14);ctx.stroke();
     // head
     ctx.fillStyle='#ffd7b0';ctx.beginPath();ctx.arc(x,y-17,17,0,Math.PI*2);ctx.fill();ctx.stroke();
-    // eyes, always present
-    let ex=0,ey=0;
-    if(player.facing==='left')ex=-3;if(player.facing==='right')ex=3;if(player.facing==='up')ey=-2;if(player.facing==='down')ey=2;
-    ctx.fillStyle='#111';
-    ctx.beginPath();ctx.arc(x-6+ex,y-19+ey,2.8,0,Math.PI*2);ctx.arc(x+6+ex,y-19+ey,2.8,0,Math.PI*2);ctx.fill();
-    // 水鉄砲は身体の横で構える。上下向きでも顔や胴体を貫かない。
-    ctx.save();
-    let gunX=x, gunY=y, angle=0;
-    if(player.facing==='right'){ gunX=x+20; gunY=y+9; angle=0; }
-    else if(player.facing==='left'){ gunX=x-20; gunY=y+9; angle=Math.PI; }
-    else if(player.facing==='down'){ gunX=x+15; gunY=y+13; angle=Math.PI/2; }
-    else { gunX=x+15; gunY=y-7; angle=-Math.PI/2; }
-    ctx.translate(gunX,gunY);
-    ctx.rotate(angle);
-    ctx.fillStyle='#43c8f0';ctx.strokeStyle='#111';ctx.lineWidth=4;ctx.lineJoin='round';
-    roundedRect(-8,-7,22,14,5);ctx.fill();ctx.stroke();
-    ctx.fillStyle='#197ca3';
-    roundedRect(12,-3,10,6,2);ctx.fill();ctx.stroke();
-    // 小さな持ち手。身体側へ付け、銃だけが浮いて見えないようにする。
-    ctx.fillStyle='#2a91b8';
-    roundedRect(-3,5,7,10,2);ctx.fill();ctx.stroke();
-    ctx.restore();
+
+    // 上向きは後頭部なので目を描かない。
+    if(player.facing!=='up'){
+      let ex=0,ey=0;
+      if(player.facing==='left')ex=-3;
+      if(player.facing==='right')ex=3;
+      if(player.facing==='down')ey=2;
+      ctx.fillStyle='#111';
+      ctx.beginPath();ctx.arc(x-6+ex,y-19+ey,2.8,0,Math.PI*2);ctx.arc(x+6+ex,y-19+ey,2.8,0,Math.PI*2);ctx.fill();
+    }
+
+    // 横向きは完全な鏡写し。持ち手は必ず下側。
+    if(player.facing==='right'){
+      drawGunLocal(x+20,y+9,0,true);
+    }else if(player.facing==='left'){
+      drawGunLocal(x-20,y+9,Math.PI,true);
+    }else if(player.facing==='down'){
+      // 正面では身体の手前。持ち手は胴体の陰に隠して描かない。
+      drawGunLocal(x+10,y+12,Math.PI/2,false);
+    }
+    // 上向きの銃はすでに身体の後ろへ描画済み。
+
     ctx.restore();
   }
 
