@@ -86,7 +86,7 @@ const scoreEl=document.getElementById('score'),missEl=document.getElementById('m
 const msgEl=document.getElementById('message'),restartBtn=document.getElementById('restart');
 const W=canvas.width,H=canvas.height,CELL=65,COLS=13,ROWS=9,OX=(W-COLS*CELL)/2,OY=(H-ROWS*CELL)/2;
 const DIRS={up:{x:0,y:-1,a:-Math.PI/2},down:{x:0,y:1,a:Math.PI/2},left:{x:-1,y:0,a:Math.PI},right:{x:1,y:0,a:0}};
-let keys={},running=false,last=0,remaining=90,score=0,miss=0,spawnTimer=24;
+let keys={},running=false,last=0,remaining=90,score=0,miss=0,spawnTimer=24,visionGrace=0;
 let projectiles=[],firecrackers=[],particles=[],slimes=[];
 let nextSlimeId=1;
 const grass=[];
@@ -98,19 +98,41 @@ function randomPassageCell(preferRight=false){
   const candidates=passageCells.filter(({c,r})=>r>0&&r<ROWS-1&&(!preferRight||c>=COLS-3));
   return candidates[Math.floor(Math.random()*candidates.length)]||{c:COLS-2,r:0};
 }
-const playerStart=cellCenter(2,ROWS-1);
-const slimeStart=cellCenter(COLS-2,0);
+const playerStart=cellCenter(2,ROWS-2);
+const slimeStart=cellCenter(COLS-3,1);
 const player={x:playerStart.x,y:playerStart.y,r:19,hitR:15,dir:'up',speed:190,shotCd:0,crackerCd:0};
 const home={x:OX+CELL*.18,y:OY+CELL*(ROWS-1.6),w:35,h:105};
 const goal={x:OX+CELL*(COLS-.72),y:OY+CELL*.55,w:48,h:115};
 function reset(){
-  score=0;miss=0;remaining=90;spawnTimer=22;projectiles=[];firecrackers=[];particles=[];slimes=[];nextSlimeId=1;
+  score=0;miss=0;remaining=90;spawnTimer=22;visionGrace=1.2;projectiles=[];firecrackers=[];particles=[];slimes=[];nextSlimeId=1;
   player.x=playerStart.x;player.y=playerStart.y;player.dir='up';player.shotCd=0;player.crackerCd=0;
   spawnSlime(slimeStart.x,slimeStart.y,'left');
+  ensureEntities();
   updateHUD();restartBtn.style.display='none';running=true;last=performance.now();requestAnimationFrame(loop);
 }
 function spawnSlime(x,y,dir='left'){
   slimes.push({id:nextSlimeId++,x,y,r:22,hitR:15,dir,state:'wander',targetDir:dir,speed:46,hop:0,think:.25+Math.random()*.45,seen:false,followOffset:0,blink:0,waterPush:0});
+}
+
+function safeSlimeSpawn(){
+  const candidates=passageCells.filter(({c,r})=>{
+    if(r<=0||r>=ROWS-1||c<Math.floor(COLS/2))return false;
+    const p=cellCenter(c,r);
+    return Math.hypot(p.x-player.x,p.y-player.y)>CELL*4 && !lineBlocked(p.x,p.y,player.x,player.y);
+  });
+  const pick=candidates[Math.floor(Math.random()*candidates.length)]||{c:COLS-3,r:1};
+  return cellCenter(pick.c,pick.r);
+}
+function ensureEntities(){
+  if(!Number.isFinite(player.x)||!Number.isFinite(player.y)||cellBlocked(player.x,player.y,player.hitR)){
+    player.x=playerStart.x;player.y=playerStart.y;player.dir='up';
+  }
+  if(slimes.length===0){const p=safeSlimeSpawn();spawnSlime(p.x,p.y,'left');}
+  for(const s of slimes){
+    if(!Number.isFinite(s.x)||!Number.isFinite(s.y)||cellBlocked(s.x,s.y,s.hitR)){
+      const p=safeSlimeSpawn();s.x=p.x;s.y=p.y;s.dir='left';s.state='wander';s.think=.3;
+    }
+  }
 }
 function cellBlocked(x,y,r=10){
   if(x-r<OX||x+r>OX+COLS*CELL||y-r<OY||y+r>OY+ROWS*CELL)return true;
@@ -172,7 +194,8 @@ function throwCracker(){
 function splash(x,y,n=9){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,sp=35+Math.random()*80;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.35+Math.random()*.35,size:2+Math.random()*4,type:'water'});}}
 function smoke(x,y){for(let i=0;i<18;i++){const a=Math.random()*Math.PI*2,sp=25+Math.random()*90;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.5+Math.random()*.5,size:3+Math.random()*6,type:'smoke'});}}
 function update(dt){
-  remaining-=dt;if(remaining<=0){remaining=0;endGame();return;}
+  remaining-=dt;visionGrace=Math.max(0,visionGrace-dt);if(remaining<=0){remaining=0;endGame();return;}
+  ensureEntities();
   spawnTimer-=dt;if(spawnTimer<=0&&slimes.length<3){spawnTimer=22+Math.random()*12;const spot=randomPassageCell(true),pos=cellCenter(spot.c,spot.r);spawnSlime(pos.x,pos.y,'left');showMessage('新しいスライム！');}
   player.shotCd=Math.max(0,player.shotCd-dt);player.crackerCd=Math.max(0,player.crackerCd-dt);
   let md=null;if(keys.ArrowUp||keys.KeyW)md='up';else if(keys.ArrowDown||keys.KeyS)md='down';else if(keys.ArrowLeft||keys.KeyA)md='left';else if(keys.ArrowRight||keys.KeyD)md='right';
@@ -185,7 +208,7 @@ function update(dt){
   firecrackers=firecrackers.filter(f=>f.life>0);
   for(const s of slimes){
     s.hop=(s.hop+dt*(s.state==='follow'?8:5))%(Math.PI*2);s.blink=Math.max(0,s.blink-dt);
-    if(s.state!=='follow'&&canSee(s,player.x,player.y)){
+    if(visionGrace<=0&&s.state!=='follow'&&canSee(s,player.x,player.y)){
       // 見つかった時点でスライムが駆け寄った扱いにして即失点。
       miss++;showMessage('見つかった！ スライムがついて来た… -1');respawnSlime(s);continue;
     }
@@ -218,11 +241,12 @@ function update(dt){
   for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt;}
   particles=particles.filter(p=>p.life>0);updateHUD();
 }
-function respawnSlime(s){const spot=randomPassageCell(true),pos=cellCenter(spot.c,spot.r);s.x=pos.x;s.y=pos.y;s.dir='left';s.state='wander';s.seen=false;s.think=.15+Math.random()*.35;s.waterPush=0;}
+function respawnSlime(s){const pos=safeSlimeSpawn();s.x=pos.x;s.y=pos.y;s.dir='left';s.state='wander';s.seen=false;s.think=.25+Math.random()*.35;s.waterPush=0;visionGrace=.8;}
 function endGame(){running=false;restartBtn.style.display='inline-block';showMessage(`終了！ 得点 ${score} / 失点 ${miss}`);}
 function showMessage(t){msgEl.textContent=t;msgEl.style.opacity=1;clearTimeout(showMessage.t);showMessage.t=setTimeout(()=>msgEl.style.opacity=0,1500);}
 function updateHUD(){scoreEl.textContent=score;missEl.textContent=miss;timeEl.textContent=Math.ceil(remaining);countEl.textContent=slimes.length;}
 function draw(){
+  ensureEntities();
   ctx.clearRect(0,0,W,H);ctx.fillStyle='#a9df72';ctx.fillRect(0,0,W,H);
   drawVillages();drawGrass();drawFirecrackers();drawProjectiles();for(const s of slimes)drawSlime(s);drawPlayer();drawParticles();
 }
