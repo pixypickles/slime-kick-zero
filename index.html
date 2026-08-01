@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.22</title>
+<title>SLIME KICK ZERO v0.23</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -51,14 +51,14 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.22　村前広場と出現ゲート</div>
+      <div class="sub">v0.23　ふたつの村と中央ゲート</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。触れられると失点し、安全な位置から再開します。<br>右上の相手の村へスライムを導くと得点し、安全な位置から再開します。<br>Bボタンで爆竹を置けます。<br>約18秒後、右上の村前広場にある小ゲートから2匹目のスライムが現れます。出現直後は得点にならず、村から離れる方向へ跳ねます。爆竹の音は茂み越しでも届きます。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られると失点です。<br>Bボタンで爆竹を置けます。<br>スライムは両村の間にある中央ゲートから現れ、約18秒後にもう一方のゲートから2匹目が現れます。爆竹の音は茂み越しでも届きます。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -66,7 +66,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.22 村前広場と出現ゲート</span>
+      <span>v0.23 ふたつの村と中央ゲート</span>
       <span id="scoreDisplay">得点 0</span>
       <span id="missDisplay">失点 0</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
@@ -98,38 +98,33 @@
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
 
-  const COLS = 15, ROWS = 9, TILE = 48;
-  // 右上に、旧フィールドの外壁を3マスだけ開いた村前広場を増設。
-  const GOAL_CELL = {x:13,y:1};
-  const SPAWN_GATE_CELL = {x:12,y:1};
+  const COLS = 13, ROWS = 9, TILE = 48;
+  const ENEMY_VILLAGE_CELL = {x:12,y:1};
+  const HOME_VILLAGE_CELL = {x:0,y:7};
+  const SPAWN_GATE_CELLS = [{x:5,y:4},{x:7,y:4}];
   canvas.width = COLS * TILE;
   canvas.height = ROWS * TILE;
 
-  // 1=草ブロック、0=通路。左側13列は従来の規則配置。
-  // 右上だけ外壁3マスを開き、その奥に村の1マスを置く。
+  // 1=草ブロック、0=通路。外周と偶数座標の交点に規則正しく草を配置。
   const map = Array.from({length:ROWS}, (_, y) => Array.from({length:COLS}, (_, x) => {
-    if (x >= 13) return 1;
-    if (x === 0 || y === 0 || x === 12 || y === ROWS-1) return 1;
+    if (x === 0 || y === 0 || x === COLS-1 || y === ROWS-1) return 1;
     if (x % 2 === 0 && y % 2 === 0) return 1;
     return 0;
   }));
-  // 旧右上外壁の3マスを撤去して小さな広場にする。
-  map[0][12]=0;
-  map[1][12]=0;
-  map[2][12]=0;
-  // 広場の奥にある村マス。さらに外側の14列目は壁のまま。
-  map[1][13]=0;
+  // 対角にある2つの村だけ外周を開く。
+  map[ENEMY_VILLAGE_CELL.y][ENEMY_VILLAGE_CELL.x]=0;
+  map[HOME_VILLAGE_CELL.y][HOME_VILLAGE_CELL.x]=0;
 
   const player = {
-    x: TILE * 1.5,
-    y: TILE * 1.5,
+    x: cellCenterX(HOME_VILLAGE_CELL.x),
+    y: cellCenterY(HOME_VILLAGE_CELL.y),
     radius: 15,
     speed: 165,
-    facing: 'down',
+    facing: 'right',
     moveDir: null,
     queuedDir: null,
     turnTarget: null,
-    lastMoveDir: 'up'
+    lastMoveDir: 'right'
   };
 
   function createSlime(x=TILE*11.5,y=TILE*7.5,facing='left',options={}){
@@ -142,7 +137,7 @@
       spawnGrace:options.spawnGrace ?? 0,spawnEffect:options.spawnEffect ?? 0
     };
   }
-  let slime=createSlime();
+  let slime=createSlime(cellCenterX(SPAWN_GATE_CELLS[0].x),cellCenterY(SPAWN_GATE_CELLS[0].y),'left',{spawnGrace:1.0,spawnEffect:.7});
   const slimes=[slime];
   let secondSlimeTimer=18;
 
@@ -171,19 +166,19 @@
   }
 
   function resetPlayer(){
-    player.x = TILE * 1.5;
-    player.y = TILE * 1.5;
-    player.facing = 'down';
+    player.x = cellCenterX(HOME_VILLAGE_CELL.x);
+    player.y = cellCenterY(HOME_VILLAGE_CELL.y);
+    player.facing = 'right';
     player.moveDir = null;
     player.queuedDir = null;
     player.turnTarget = null;
-    player.lastMoveDir = 'up';
+    player.lastMoveDir = 'right';
     pressOrder.length = 0;
   }
 
   function resetSlime(){
     slimes.length=0;
-    slime=createSlime(TILE*11.5,TILE*7.5,'left');
+    slime=createSlime(cellCenterX(SPAWN_GATE_CELLS[0].x),cellCenterY(SPAWN_GATE_CELLS[0].y),'left',{spawnGrace:1.0,spawnEffect:.7});
     slimes.push(slime);
     secondSlimeTimer=18;
     waterShots.length = 0;
@@ -195,12 +190,11 @@
 
   function spawnSecondSlime(){
     if(slimes.length>=2) return;
-    const x=cellCenterX(SPAWN_GATE_CELL.x);
-    const y=cellCenterY(SPAWN_GATE_CELL.y);
-    // 村の目の前から出るが、必ず左へ2回跳ねて広場を離れる。
-    // 出現直後は得点判定を無効にし、同時得点を二重に防ぐ。
-    slimes.push(createSlime(x,y,'left',{
-      forcedDir:'left',forcedHops:2,idleDuration:.18,spawnGrace:1.8,spawnEffect:.7
+    const gate=SPAWN_GATE_CELLS[1];
+    const x=cellCenterX(gate.x);
+    const y=cellCenterY(gate.y);
+    slimes.push(createSlime(x,y,'right',{
+      forcedDir:'right',forcedHops:1,idleDuration:.18,spawnGrace:1.2,spawnEffect:.7
     }));
   }
 
@@ -340,9 +334,9 @@
     roundTimer=0;
   }
 
-  function slimeReachedGoal(){
-    const c=cellFromPosition(slime.x,slime.y);
-    return slime.spawnGrace<=0 && c.x===GOAL_CELL.x && c.y===GOAL_CELL.y && slime.state==='idle';
+  function slimeReachedCell(target,cell){
+    const c=cellFromPosition(target.x,target.y);
+    return target.spawnGrace<=0 && c.x===cell.x && c.y===cell.y && target.state==='idle';
   }
 
   // スライムの視界は向いている通路の正面だけ。約4.5マス先まで見える。
@@ -457,8 +451,7 @@
         // ときどき長めにぼんやりする。
         slime.idleDuration=slime.alertState==='found' ? .08 : (slime.forcedDir ? .28+Math.random()*.18 : (Math.random()<.22 ? .9+Math.random()*1.0 : .22+Math.random()*.55));
         slime.landingPulse=1;
-        const contactDx=player.x-slime.x, contactDy=player.y-slime.y;
-        if(slime.alertState==='found' && contactDx*contactDx+contactDy*contactDy<(TILE*.72)*(TILE*.72)) triggerLoss();
+
       }
     }
   }
@@ -583,8 +576,12 @@
       slime=target;
       updateDetection(dt);
       updateSlime(dt);
-      if(slimeReachedGoal()){
+      if(slimeReachedCell(slime,ENEMY_VILLAGE_CELL)){
         triggerScore();
+        return;
+      }
+      if(slimeReachedCell(slime,HOME_VILLAGE_CELL)){
+        triggerLoss();
         return;
       }
     }
@@ -695,28 +692,33 @@
       }
     }
 
-    // 村前広場の小ゲート。2匹目はここから現れる。
-    const gateX=cellCenterX(SPAWN_GATE_CELL.x), gateY=cellCenterY(SPAWN_GATE_CELL.y);
-    ctx.save();
-    ctx.fillStyle='rgba(92,226,255,.20)';
-    ctx.strokeStyle='#168caf';ctx.lineWidth=4;
-    ctx.beginPath();ctx.ellipse(gateX,gateY,11,18,0,0,Math.PI*2);ctx.fill();ctx.stroke();
-    ctx.strokeStyle='rgba(220,251,255,.82)';ctx.lineWidth=3;
-    ctx.beginPath();ctx.ellipse(gateX,gateY,5,12,0,0,Math.PI*2);ctx.stroke();
-    ctx.restore();
+    // 両村の対角線中央付近にある2つの出現ゲート。
+    for(const gate of SPAWN_GATE_CELLS){
+      const gateX=cellCenterX(gate.x), gateY=cellCenterY(gate.y);
+      ctx.save();
+      ctx.fillStyle='rgba(92,226,255,.20)';
+      ctx.strokeStyle='#168caf';ctx.lineWidth=4;
+      ctx.beginPath();ctx.ellipse(gateX,gateY,11,18,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.strokeStyle='rgba(220,251,255,.82)';ctx.lineWidth=3;
+      ctx.beginPath();ctx.ellipse(gateX,gateY,5,12,0,0,Math.PI*2);ctx.stroke();
+      ctx.restore();
+    }
 
-    // 広場の奥にある相手の村。ここだけが得点マス。
-    const gx=cellCenterX(GOAL_CELL.x), gy=cellCenterY(GOAL_CELL.y);
-    ctx.save();
-    ctx.fillStyle='rgba(255,214,78,.34)';
-    ctx.strokeStyle='#a15d16';ctx.lineWidth=4;
-    ctx.beginPath();ctx.arc(gx,gy,19,0,Math.PI*2);ctx.fill();ctx.stroke();
-    ctx.fillStyle='#fff4c7';ctx.strokeStyle='#111';ctx.lineWidth=3;
-    roundedRect(gx-13,gy-10,26,21,5);ctx.fill();ctx.stroke();
-    ctx.fillStyle='#d45445';
-    ctx.beginPath();ctx.moveTo(gx-17,gy-9);ctx.lineTo(gx,gy-22);ctx.lineTo(gx+17,gy-9);ctx.closePath();ctx.fill();ctx.stroke();
-    ctx.fillStyle='#6b3f22';ctx.fillRect(gx-4,gy+1,8,10);
-    ctx.restore();
+    function drawVillage(cell,roofColor,ringColor){
+      const gx=cellCenterX(cell.x), gy=cellCenterY(cell.y);
+      ctx.save();
+      ctx.fillStyle='rgba(255,214,78,.30)';
+      ctx.strokeStyle=ringColor;ctx.lineWidth=4;
+      ctx.beginPath();ctx.arc(gx,gy,19,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#fff4c7';ctx.strokeStyle='#111';ctx.lineWidth=3;
+      roundedRect(gx-13,gy-10,26,21,5);ctx.fill();ctx.stroke();
+      ctx.fillStyle=roofColor;
+      ctx.beginPath();ctx.moveTo(gx-17,gy-9);ctx.lineTo(gx,gy-22);ctx.lineTo(gx+17,gy-9);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.fillStyle='#6b3f22';ctx.fillRect(gx-4,gy+1,8,10);
+      ctx.restore();
+    }
+    drawVillage(ENEMY_VILLAGE_CELL,'#d45445','#a15d16');
+    drawVillage(HOME_VILLAGE_CELL,'#4c8ee8','#315f9e');
   }
 
   function drawBush(x,y){
@@ -1043,7 +1045,7 @@
       ctx.strokeStyle='#111';ctx.lineWidth=5;
       roundedRect(canvas.width/2-118,canvas.height/2-42,236,84,18);ctx.fill();ctx.stroke();
       ctx.fillStyle='#111';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.font='900 24px system-ui,sans-serif';ctx.fillText('なつかれた！',canvas.width/2,canvas.height/2-9);
+      ctx.font='900 24px system-ui,sans-serif';ctx.fillText('自分の村に入られた！',canvas.width/2,canvas.height/2-9);
       ctx.font='900 18px system-ui,sans-serif';ctx.fillText('失点 +1',canvas.width/2,canvas.height/2+22);
       ctx.restore();
     }
@@ -1053,7 +1055,7 @@
       ctx.strokeStyle='#111';ctx.lineWidth=5;
       roundedRect(canvas.width/2-118,canvas.height/2-42,236,84,18);ctx.fill();ctx.stroke();
       ctx.fillStyle='#111';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.font='900 24px system-ui,sans-serif';ctx.fillText('村まで届いた！',canvas.width/2,canvas.height/2-9);
+      ctx.font='900 24px system-ui,sans-serif';ctx.fillText('相手の村まで届いた！',canvas.width/2,canvas.height/2-9);
       ctx.font='900 18px system-ui,sans-serif';ctx.fillText('得点 +1',canvas.width/2,canvas.height/2+22);
       ctx.restore();
     }
