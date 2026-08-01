@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.18</title>
+<title>SLIME KICK ZERO v0.19</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -48,14 +48,14 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.18　見つかると失点</div>
+      <div class="sub">v0.19　相手の村へ導く</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。触れられると失点し、安全な位置から再開します。<br>得点処理はまだありません。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。触れられると失点し、安全な位置から再開します。<br>右上の相手の村へスライムを導くと得点し、安全な位置から再開します。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -63,7 +63,8 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.18 見つかると失点</span>
+      <span>v0.19 相手の村へ導く</span>
+      <span id="scoreDisplay">得点 0</span>
       <span id="missDisplay">失点 0</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
@@ -89,11 +90,13 @@
   const game = document.getElementById('game');
   const startBtn = document.getElementById('startBtn');
   const backBtn = document.getElementById('backBtn');
+  const scoreDisplay = document.getElementById('scoreDisplay');
   const missDisplay = document.getElementById('missDisplay');
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
 
   const COLS = 13, ROWS = 9, TILE = 48;
+  const GOAL_CELL = {x:11,y:1};
   canvas.width = COLS * TILE;
   canvas.height = ROWS * TILE;
 
@@ -150,6 +153,7 @@
   };
   let running = false;
   let last = performance.now();
+  let scores = 0;
   let misses = 0;
   let roundState = 'play';
   let roundTimer = 0;
@@ -279,6 +283,10 @@
     return open[0];
   }
 
+  function updateScoreDisplay(){
+    scoreDisplay.textContent='得点 '+scores;
+  }
+
   function updateMissDisplay(){
     missDisplay.textContent='失点 '+misses;
   }
@@ -300,6 +308,30 @@
     resetSlime();
     roundState='play';
     roundTimer=0;
+  }
+
+  function triggerScore(){
+    if(roundState!=='play') return;
+    scores++;
+    updateScoreDisplay();
+    roundState='scored';
+    roundTimer=1.05;
+    waterShots.length=0;
+    player.moveDir=null;
+    player.turnTarget=null;
+    Object.keys(keys).forEach(k=>keys[k]=false);
+  }
+
+  function resetRoundAfterScore(){
+    resetPlayer();
+    resetSlime();
+    roundState='play';
+    roundTimer=0;
+  }
+
+  function slimeReachedGoal(){
+    const c=cellFromPosition(slime.x,slime.y);
+    return c.x===GOAL_CELL.x && c.y===GOAL_CELL.y && slime.state==='idle';
   }
 
   // スライムの視界は向いている通路の正面だけ。約4.5マス先まで見える。
@@ -480,13 +512,20 @@
   }
 
   function update(dt){
-    if(roundState==='lost'){
+    if(roundState==='lost' || roundState==='scored'){
       roundTimer-=dt;
-      if(roundTimer<=0) resetRoundAfterLoss();
+      if(roundTimer<=0){
+        if(roundState==='lost') resetRoundAfterLoss();
+        else resetRoundAfterScore();
+      }
       return;
     }
     updateDetection(dt);
     updateSlime(dt);
+    if(slimeReachedGoal()){
+      triggerScore();
+      return;
+    }
     updateWater(dt);
     const desired=newestHeldDirection();
     if(desired){
@@ -592,6 +631,19 @@
         ctx.beginPath();ctx.arc(px+TILE/2,py+TILE/2,8,0,Math.PI*2);ctx.fill();
       }
     }
+
+    // 相手の村。通行可能なゴールマスとして描く。
+    const gx=cellCenterX(GOAL_CELL.x), gy=cellCenterY(GOAL_CELL.y);
+    ctx.save();
+    ctx.fillStyle='rgba(255,214,78,.34)';
+    ctx.strokeStyle='#a15d16';ctx.lineWidth=4;
+    ctx.beginPath();ctx.arc(gx,gy,19,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#fff4c7';ctx.strokeStyle='#111';ctx.lineWidth=3;
+    roundedRect(gx-13,gy-10,26,21,5);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#d45445';
+    ctx.beginPath();ctx.moveTo(gx-17,gy-9);ctx.lineTo(gx,gy-22);ctx.lineTo(gx+17,gy-9);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='#6b3f22';ctx.fillRect(gx-4,gy+1,8,10);
+    ctx.restore();
   }
 
   function drawBush(x,y){
@@ -888,6 +940,16 @@
       ctx.font='900 18px system-ui,sans-serif';ctx.fillText('失点 +1',canvas.width/2,canvas.height/2+22);
       ctx.restore();
     }
+    if(roundState==='scored'){
+      ctx.save();
+      ctx.fillStyle='rgba(255,250,220,.94)';
+      ctx.strokeStyle='#111';ctx.lineWidth=5;
+      roundedRect(canvas.width/2-118,canvas.height/2-42,236,84,18);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#111';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.font='900 24px system-ui,sans-serif';ctx.fillText('村まで届いた！',canvas.width/2,canvas.height/2-9);
+      ctx.font='900 18px system-ui,sans-serif';ctx.fillText('得点 +1',canvas.width/2,canvas.height/2+22);
+      ctx.restore();
+    }
   }
 
   function loop(now){
@@ -897,7 +959,7 @@
   }
 
   function start(){
-    misses=0;roundState='play';roundTimer=0;updateMissDisplay();
+    scores=0;misses=0;roundState='play';roundTimer=0;updateScoreDisplay();updateMissDisplay();
     resetPlayer();resetSlime();setScreen('game');running=true;last=performance.now();draw();requestAnimationFrame(loop);
   }
   function stop(){running=false;Object.keys(keys).forEach(k=>keys[k]=false);setScreen('title');}
