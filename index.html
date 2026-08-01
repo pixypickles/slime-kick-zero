@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.25</title>
+<title>SLIME KICK ZERO v0.26</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -51,14 +51,14 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.25　ふたつの村と中央ゲート</div>
+      <div class="sub">v0.26　中央ブロックゲート</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>スライムは両村の間にある中央ゲートから現れ、約18秒後にもう一方のゲートから2匹目が現れます。爆竹の音は茂み越しでも届きます。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -66,7 +66,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.25 ふたつの村と中央ゲート</span>
+      <span>v0.26 中央ブロックゲート</span>
       <span id="scoreDisplay">得点 0</span>
       <span id="missDisplay">失点 0</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
@@ -104,7 +104,13 @@
   const HOME_VILLAGE_ART_CELL = {x:0,y:8};
   const ENEMY_VILLAGE_CELL = {x:12,y:1};
   const HOME_VILLAGE_CELL = {x:0,y:7};
-  const SPAWN_GATE_CELLS = [{x:5,y:4},{x:7,y:4}];
+  const CENTRAL_GATE_CELL = {x:6,y:4};
+  const SPAWN_EXIT_CELLS = [
+    {x:5,y:4,dir:'left'},
+    {x:7,y:4,dir:'right'},
+    {x:6,y:3,dir:'up'},
+    {x:6,y:5,dir:'down'}
+  ];
   canvas.width = COLS * TILE;
   canvas.height = ROWS * TILE;
 
@@ -142,7 +148,25 @@
       spawnGrace:options.spawnGrace ?? 0,spawnEffect:options.spawnEffect ?? 0
     };
   }
-  let slime=createSlime(cellCenterX(SPAWN_GATE_CELLS[0].x),cellCenterY(SPAWN_GATE_CELLS[0].y),'left',{spawnGrace:1.0,spawnEffect:.7});
+  function chooseSpawnExit(){
+    const candidates=SPAWN_EXIT_CELLS.filter(exit=>isOpenCell(exit.x,exit.y));
+    let best=candidates[0];
+    let bestScore=-Infinity;
+    for(const exit of candidates){
+      const gx=cellCenterX(exit.x),gy=cellCenterY(exit.y);
+      let score=Math.hypot(gx-player.x,gy-player.y)+Math.random()*80;
+      for(const target of slimes||[]) score+=Math.hypot(gx-target.x,gy-target.y)*.45;
+      if(score>bestScore){bestScore=score;best=exit;}
+    }
+    return best||{x:5,y:4,dir:'left'};
+  }
+  function createGateSlime(){
+    const exit=chooseSpawnExit();
+    return createSlime(cellCenterX(exit.x),cellCenterY(exit.y),exit.dir,{
+      forcedDir:exit.dir,forcedHops:1,idleDuration:.18,spawnGrace:1.2,spawnEffect:.7
+    });
+  }
+  let slime=createSlime(cellCenterX(5),cellCenterY(4),'left',{forcedDir:'left',forcedHops:1,idleDuration:.18,spawnGrace:1.0,spawnEffect:.7});
   const slimes=[slime];
   let secondSlimeTimer=18;
 
@@ -186,7 +210,7 @@
 
   function resetSlime(){
     slimes.length=0;
-    slime=createSlime(cellCenterX(SPAWN_GATE_CELLS[0].x),cellCenterY(SPAWN_GATE_CELLS[0].y),'left',{spawnGrace:1.0,spawnEffect:.7});
+    slime=createSlime(cellCenterX(5),cellCenterY(4),'left',{forcedDir:'left',forcedHops:1,idleDuration:.18,spawnGrace:1.0,spawnEffect:.7});
     slimes.push(slime);
     secondSlimeTimer=18;
     scoreRespawnTimers.length=0;
@@ -200,28 +224,11 @@
 
   function spawnSecondSlime(){
     if(slimes.length+scoreRespawnTimers.length>=2) return;
-    const gate=SPAWN_GATE_CELLS[1];
-    const x=cellCenterX(gate.x);
-    const y=cellCenterY(gate.y);
-    slimes.push(createSlime(x,y,'right',{
-      forcedDir:'right',forcedHops:1,idleDuration:.18,spawnGrace:1.2,spawnEffect:.7
-    }));
+    slimes.push(createGateSlime());
   }
 
   function spawnReplacementSlime(){
-    // 既存スライムやプレイヤーから遠い方のゲートを選ぶ。
-    let best=SPAWN_GATE_CELLS[0], bestScore=-Infinity;
-    for(const gate of SPAWN_GATE_CELLS){
-      const gx=cellCenterX(gate.x), gy=cellCenterY(gate.y);
-      let score=Math.hypot(gx-player.x,gy-player.y);
-      for(const target of slimes) score+=Math.hypot(gx-target.x,gy-target.y)*.55;
-      if(score>bestScore){bestScore=score;best=gate;}
-    }
-    const x=cellCenterX(best.x), y=cellCenterY(best.y);
-    const forced=best.x<COLS/2?'right':'left';
-    slimes.push(createSlime(x,y,forced,{
-      forcedDir:forced,forcedHops:1,idleDuration:.18,spawnGrace:1.2,spawnEffect:.7
-    }));
+    slimes.push(createGateSlime());
   }
 
 
@@ -727,18 +734,6 @@
       }
     }
 
-    // 両村の対角線中央付近にある2つの出現ゲート。
-    for(const gate of SPAWN_GATE_CELLS){
-      const gateX=cellCenterX(gate.x), gateY=cellCenterY(gate.y);
-      ctx.save();
-      ctx.fillStyle='rgba(92,226,255,.20)';
-      ctx.strokeStyle='#168caf';ctx.lineWidth=4;
-      ctx.beginPath();ctx.ellipse(gateX,gateY,11,18,0,0,Math.PI*2);ctx.fill();ctx.stroke();
-      ctx.strokeStyle='rgba(220,251,255,.82)';ctx.lineWidth=3;
-      ctx.beginPath();ctx.ellipse(gateX,gateY,5,12,0,0,Math.PI*2);ctx.stroke();
-      ctx.restore();
-    }
-
     function drawVillage(cell,roofColor,ringColor){
       const gx=cellCenterX(cell.x), gy=cellCenterY(cell.y);
       ctx.save();
@@ -754,6 +749,21 @@
     }
     drawVillage(ENEMY_VILLAGE_ART_CELL,'#d45445','#a15d16');
     drawVillage(HOME_VILLAGE_ART_CELL,'#4c8ee8','#315f9e');
+  }
+
+  function drawCentralGate(){
+    const gx=cellCenterX(CENTRAL_GATE_CELL.x), gy=cellCenterY(CENTRAL_GATE_CELL.y);
+    ctx.save();
+    // 当たり判定は草ブロックと同じく侵入不可。見た目だけ異空間ゲートにする。
+    ctx.fillStyle='rgba(0,0,0,.18)';
+    ctx.beginPath();ctx.ellipse(gx,gy+19,18,6,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#17465a';ctx.strokeStyle='#111';ctx.lineWidth=5;
+    roundedRect(gx-20,gy-21,40,42,12);ctx.fill();ctx.stroke();
+    ctx.fillStyle='rgba(92,226,255,.24)';ctx.strokeStyle='#168caf';ctx.lineWidth=4;
+    ctx.beginPath();ctx.ellipse(gx,gy,12,18,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.strokeStyle='rgba(220,251,255,.86)';ctx.lineWidth=3;
+    ctx.beginPath();ctx.ellipse(gx,gy,5.5,12,0,0,Math.PI*2);ctx.stroke();
+    ctx.restore();
   }
 
   function drawBush(x,y){
@@ -1052,7 +1062,10 @@
       if(map[y][x]===1){
         const isVillageArt=(x===ENEMY_VILLAGE_ART_CELL.x&&y===ENEMY_VILLAGE_ART_CELL.y)||
           (x===HOME_VILLAGE_ART_CELL.x&&y===HOME_VILLAGE_ART_CELL.y);
-        if(!isVillageArt) layers.push({depth:(y+1)*TILE,kind:'bush',x,y});
+        if(!isVillageArt){
+          if(x===CENTRAL_GATE_CELL.x&&y===CENTRAL_GATE_CELL.y) layers.push({depth:(y+1)*TILE,kind:'gate'});
+          else layers.push({depth:(y+1)*TILE,kind:'bush',x,y});
+        }
       }
     }
     for(const shot of waterShots) layers.push({depth:shot.y,kind:'water',shot});
@@ -1063,6 +1076,7 @@
     for(const item of layers){
       if(item.kind==='player') drawPlayer();
       else if(item.kind==='slime'){ slime=item.slime; drawSlime(); }
+      else if(item.kind==='gate') drawCentralGate();
       else if(item.kind==='firecracker'){
         const f=item.f;ctx.save();ctx.translate(f.x,f.y+8);ctx.rotate(Math.sin(f.phase)*.08);ctx.fillStyle='#df4b34';ctx.strokeStyle='#111';ctx.lineWidth=3;roundedRect(-8,-5,16,10,4);ctx.fill();ctx.stroke();ctx.strokeStyle='#70411f';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(5,-5);ctx.quadraticCurveTo(10,-12,12,-8);ctx.stroke();ctx.fillStyle=f.timer<.35?'#fff176':'#ff9d2e';ctx.beginPath();ctx.arc(12,-8,2.5,0,Math.PI*2);ctx.fill();ctx.restore();
       }else if(item.kind==='water'){
