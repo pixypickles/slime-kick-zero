@@ -55,7 +55,7 @@
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        この版では、まだ発見判定・得点はありません。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>この版では、まだ失点・得点処理はありません。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -132,7 +132,10 @@
     landingPulse: 0,
     forcedDir: null,
     forcedHops: 0,
-    wetFlash: 0
+    wetFlash: 0,
+    alertState: 'none',
+    alertTime: 0,
+    alertDuration: 0.8
   };
 
   const waterShots = [];
@@ -176,6 +179,8 @@
     slime.forcedDir = null;
     slime.forcedHops = 0;
     slime.wetFlash = 0;
+    slime.alertState = 'none';
+    slime.alertTime = 0;
     slime.hopFromX = slime.x;
     slime.hopFromY = slime.y;
     slime.hopToX = slime.x;
@@ -250,6 +255,54 @@
     return choices[Math.floor(Math.random()*choices.length)];
   }
 
+  function directionTowardPlayer(){
+    const dx=player.x-slime.x, dy=player.y-slime.y;
+    if(Math.abs(dx)>Math.abs(dy)) return dx<0?'left':'right';
+    return dy<0?'up':'down';
+  }
+
+  // スライムの視界は向いている通路の正面だけ。約4.5マス先まで見える。
+  function slimeCanSeePlayer(){
+    const d=DIRS[slime.facing];
+    if(!d) return false;
+    const dx=player.x-slime.x, dy=player.y-slime.y;
+    const forward=dx*d.x+dy*d.y;
+    if(forward<=0 || forward>TILE*4.5) return false;
+    const sideways=Math.abs(dx*d.y-dy*d.x);
+    if(sideways>TILE*.38) return false;
+
+    const sc=cellFromPosition(slime.x,slime.y);
+    const pc=cellFromPosition(player.x,player.y);
+    let cx=sc.x+d.x, cy=sc.y+d.y;
+    while(cx!==pc.x || cy!==pc.y){
+      if(!isOpenCell(cx,cy)) return false;
+      cx+=d.x;cy+=d.y;
+      if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
+    }
+    return isOpenCell(pc.x,pc.y);
+  }
+
+  function updateDetection(dt){
+    const visible=slimeCanSeePlayer();
+    if(visible){
+      if(slime.alertState==='none'){
+        slime.alertState='warning';
+        slime.alertTime=0;
+      }
+      if(slime.alertState==='warning'){
+        slime.alertTime+=dt;
+        slime.facing=directionTowardPlayer();
+        if(slime.alertTime>=slime.alertDuration){
+          slime.alertState='found';
+          slime.alertTime=slime.alertDuration;
+        }
+      }
+    }else if(slime.alertState==='warning'){
+      slime.alertState='none';
+      slime.alertTime=0;
+    }
+  }
+
   function beginSlimeHop(){
     const cell=cellFromPosition(slime.x,slime.y);
     slime.x=cellCenterX(cell.x);
@@ -291,6 +344,7 @@
     slime.stateTime+=dt;
 
     if(slime.state==='idle'){
+      if(slime.alertState==='warning' || slime.alertState==='found') return;
       if(slime.stateTime>=slime.idleDuration) beginSlimeHop();
       return;
     }
@@ -376,6 +430,7 @@
   }
 
   function update(dt){
+    updateDetection(dt);
     updateSlime(dt);
     updateWater(dt);
     const desired=newestHeldDirection();
@@ -700,6 +755,25 @@
       ctx.stroke();
     }
     ctx.restore();
+
+    // 約0.8秒の発見猶予を頭上の記号で知らせる。
+    if(slime.alertState==='warning'){
+      const pulse=1+Math.sin(performance.now()*.018)*.08;
+      ctx.save();
+      ctx.translate(x,bodyY-35);
+      ctx.scale(pulse,pulse);
+      ctx.fillStyle='#fff7cf';ctx.strokeStyle='#111';ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(0,0,12,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#ef3e34';ctx.font='900 20px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!',0,1);
+      ctx.restore();
+    }else if(slime.alertState==='found'){
+      ctx.save();
+      ctx.translate(x,bodyY-35);
+      ctx.fillStyle='#ff6961';ctx.strokeStyle='#111';ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(0,0,13,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#fff';ctx.font='900 16px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!!',0,1);
+      ctx.restore();
+    }
   }
 
   function drawWater(){
