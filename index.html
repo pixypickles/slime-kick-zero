@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.26</title>
+<title>SLIME KICK ZERO v0.27</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -102,8 +102,11 @@
   // 村の建物は外周の角に置き、実際の得点・失点判定は隣接する入口マスで行う。
   const ENEMY_VILLAGE_ART_CELL = {x:12,y:0};
   const HOME_VILLAGE_ART_CELL = {x:0,y:8};
-  const ENEMY_VILLAGE_CELL = {x:12,y:1};
-  const HOME_VILLAGE_CELL = {x:0,y:7};
+  // 各村には縦・横の2方向から入れる。どちらの入口でも同じ判定にする。
+  const ENEMY_VILLAGE_CELLS = [{x:11,y:0},{x:12,y:1}];
+  const HOME_VILLAGE_CELLS = [{x:1,y:8},{x:0,y:7}];
+  const ENEMY_VILLAGE_CELL = ENEMY_VILLAGE_CELLS[1];
+  const HOME_VILLAGE_CELL = HOME_VILLAGE_CELLS[1];
   const CENTRAL_GATE_CELL = {x:6,y:4};
   const SPAWN_EXIT_CELLS = [
     {x:5,y:4,dir:'left'},
@@ -121,10 +124,8 @@
     return 0;
   }));
   // 対角にある2つの村の入口と、村の横の外周1マスを開く。
-  map[ENEMY_VILLAGE_CELL.y][ENEMY_VILLAGE_CELL.x]=0;
-  map[HOME_VILLAGE_CELL.y][HOME_VILLAGE_CELL.x]=0;
-  map[0][11]=0; // 相手村の左隣
-  map[8][1]=0;  // 自分村の右隣
+  for(const cell of ENEMY_VILLAGE_CELLS) map[cell.y][cell.x]=0;
+  for(const cell of HOME_VILLAGE_CELLS) map[cell.y][cell.x]=0;
 
   const player = {
     x: cellCenterX(HOME_VILLAGE_CELL.x),
@@ -369,6 +370,10 @@
   function slimeReachedCell(target,cell){
     const c=cellFromPosition(target.x,target.y);
     return target.spawnGrace<=0 && c.x===cell.x && c.y===cell.y && target.state==='idle';
+  }
+
+  function slimeReachedAnyCell(target,cells){
+    return cells.some(cell=>slimeReachedCell(target,cell));
   }
 
   // スライムの視界は向いている通路の正面だけ。約4.5マス先まで見える。
@@ -618,11 +623,11 @@
         triggerLoss(slime,'caught');
         return;
       }
-      if(slimeReachedCell(slime,ENEMY_VILLAGE_CELL)){
+      if(slimeReachedAnyCell(slime,ENEMY_VILLAGE_CELLS)){
         triggerScore(slime);
         continue;
       }
-      if(slimeReachedCell(slime,HOME_VILLAGE_CELL)){
+      if(slimeReachedAnyCell(slime,HOME_VILLAGE_CELLS)){
         triggerLoss(slime,'village');
         return;
       }
