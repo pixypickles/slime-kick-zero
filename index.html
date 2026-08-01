@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.24</title>
+<title>SLIME KICK ZERO v0.25</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -51,7 +51,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.24　ふたつの村と中央ゲート</div>
+      <div class="sub">v0.25　ふたつの村と中央ゲート</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
@@ -66,7 +66,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.24 ふたつの村と中央ゲート</span>
+      <span>v0.25 ふたつの村と中央ゲート</span>
       <span id="scoreDisplay">得点 0</span>
       <span id="missDisplay">失点 0</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
@@ -114,9 +114,11 @@
     if (x % 2 === 0 && y % 2 === 0) return 1;
     return 0;
   }));
-  // 対角にある2つの村だけ外周を開く。
+  // 対角にある2つの村の入口と、村の横の外周1マスを開く。
   map[ENEMY_VILLAGE_CELL.y][ENEMY_VILLAGE_CELL.x]=0;
   map[HOME_VILLAGE_CELL.y][HOME_VILLAGE_CELL.x]=0;
+  map[0][11]=0; // 相手村の左隣
+  map[8][1]=0;  // 自分村の右隣
 
   const player = {
     x: cellCenterX(HOME_VILLAGE_CELL.x),
@@ -162,6 +164,7 @@
   let misses = 0;
   let roundState = 'play';
   let roundTimer = 0;
+  let lossReason = 'village';
   let scoreMessageTimer = 0;
   const scoreRespawnTimers = [];
 
@@ -315,12 +318,21 @@
     missDisplay.textContent='失点 '+misses;
   }
 
-  function triggerLoss(){
+  function triggerLoss(target,reason='village'){
     if(roundState!=='play') return;
     misses++;
     updateMissDisplay();
+    lossReason=reason;
     roundState='lost';
     roundTimer=1.05;
+
+    // 失点の原因になった個体だけを消し、もう1匹は残す。
+    if(target){
+      const index=slimes.indexOf(target);
+      if(index>=0) slimes.splice(index,1);
+      scoreRespawnTimers.push(1.15);
+    }
+
     waterShots.length=0;
     firecrackers.length=0;
     soundRings.length=0;
@@ -330,8 +342,8 @@
   }
 
   function resetRoundAfterLoss(){
+    // スライム全体はリセットせず、プレイヤーだけ自分の村へ戻す。
     resetPlayer();
-    resetSlime();
     roundState='play';
     roundTimer=0;
   }
@@ -596,7 +608,7 @@
       updateSlime(dt);
       // 「!!」状態のスライムに触れられたら、1匹目・2匹目を問わず失点。
       if(slime.alertState==='found' && Math.hypot(slime.x-player.x,slime.y-player.y)<28){
-        triggerLoss();
+        triggerLoss(slime,'caught');
         return;
       }
       if(slimeReachedCell(slime,ENEMY_VILLAGE_CELL)){
@@ -604,7 +616,7 @@
         continue;
       }
       if(slimeReachedCell(slime,HOME_VILLAGE_CELL)){
-        triggerLoss();
+        triggerLoss(slime,'village');
         return;
       }
     }
@@ -1070,7 +1082,7 @@
       ctx.strokeStyle='#111';ctx.lineWidth=5;
       roundedRect(canvas.width/2-118,canvas.height/2-42,236,84,18);ctx.fill();ctx.stroke();
       ctx.fillStyle='#111';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.font='900 24px system-ui,sans-serif';ctx.fillText('自分の村に入られた！',canvas.width/2,canvas.height/2-9);
+      ctx.font='900 24px system-ui,sans-serif';ctx.fillText(lossReason==='caught'?'懐かれた！':'自分の村に入られた！',canvas.width/2,canvas.height/2-9);
       ctx.font='900 18px system-ui,sans-serif';ctx.fillText('失点 +1',canvas.width/2,canvas.height/2+22);
       ctx.restore();
     }
@@ -1093,7 +1105,7 @@
   }
 
   function start(){
-    scores=0;misses=0;roundState='play';roundTimer=0;scoreMessageTimer=0;scoreRespawnTimers.length=0;updateScoreDisplay();updateMissDisplay();
+    scores=0;misses=0;roundState='play';roundTimer=0;lossReason='village';scoreMessageTimer=0;scoreRespawnTimers.length=0;updateScoreDisplay();updateMissDisplay();
     resetPlayer();resetSlime();setScreen('game');running=true;last=performance.now();draw();requestAnimationFrame(loop);
   }
   function stop(){running=false;Object.keys(keys).forEach(k=>keys[k]=false);setScreen('title');}
