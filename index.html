@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.31</title>
+<title>SLIME KICK ZERO v0.34</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -51,7 +51,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.31　丸い生け垣</div>
+      <div class="sub">v0.34　花モンスター</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
@@ -66,7 +66,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.31 丸い生け垣</span>
+      <span>v0.34 花モンスター</span>
       <span id="scoreDisplay">得点 0</span>
       <span id="missDisplay">失点 0</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
@@ -192,6 +192,29 @@
   let lossReason = 'village';
   let scoreMessageTimer = 0;
   const scoreRespawnTimers = [];
+  let flowerRespawnTimer = 0;
+
+  function createFlower(x,y,facing='right',options={}){
+    return {
+      x,y,facing,moveDir:facing,state:'idle',stateTime:0,
+      idleDuration:options.idleDuration ?? (.55+Math.random()*.8),
+      floatTime:Math.random()*Math.PI*2,
+      hopFromX:x,hopFromY:y,hopToX:x,hopToY:y,hopProgress:0,hopDuration:.62,
+      forcedDir:options.forcedDir ?? null,forcedHops:options.forcedHops ?? 0,
+      alertState:'none',alertTime:0,alertDuration:.8,escapeTime:0,escapeDuration:.75,
+      spawnGrace:options.spawnGrace ?? 1.0,spawnEffect:options.spawnEffect ?? .7,
+      flyingTime:0,wetFlash:0
+    };
+  }
+
+  function createGateFlower(){
+    const exit=chooseSpawnExit();
+    return createFlower(cellCenterX(exit.x),cellCenterY(exit.y),exit.dir,{
+      forcedDir:exit.dir,forcedHops:1,idleDuration:.22,spawnGrace:1.2,spawnEffect:.7
+    });
+  }
+
+  let flowers=[];
 
   function setScreen(which){
     title.classList.toggle('active', which === 'title');
@@ -221,6 +244,9 @@
     soundRings.length = 0;
     waterCooldown = 0;
     firecrackerCooldown = 0;
+    flowers.length=0;
+    flowers.push(createGateFlower());
+    flowerRespawnTimer=0;
   }
 
   function spawnSecondSlime(){
@@ -316,6 +342,120 @@
       return aa-bb;
     });
     return open[0];
+  }
+
+  function chooseFlowerDirection(target,cx,cy){
+    const open=availableDirections(cx,cy);
+    if(!open.length) return null;
+    const reverse={up:'down',down:'up',left:'right',right:'left'}[target.moveDir];
+    let choices=open.filter(dir=>dir!==reverse);
+    if(!choices.length) choices=open;
+    if(choices.includes(target.moveDir) && Math.random()<.52) return target.moveDir;
+    return choices[Math.floor(Math.random()*choices.length)];
+  }
+
+  function flowerCanSeePlayer(target){
+    const d=DIRS[target.facing];
+    if(!d) return false;
+    const dx=player.x-target.x,dy=player.y-target.y;
+    const forward=dx*d.x+dy*d.y;
+    if(forward<=0 || forward>TILE*4.2) return false;
+    const sideways=Math.abs(dx*d.y-dy*d.x);
+    if(sideways>TILE*.38) return false;
+    const fc=cellFromPosition(target.x,target.y);
+    const pc=cellFromPosition(player.x,player.y);
+    let cx=fc.x+d.x,cy=fc.y+d.y;
+    while(cx!==pc.x || cy!==pc.y){
+      if(!isOpenCell(cx,cy)) return false;
+      cx+=d.x;cy+=d.y;
+      if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
+    }
+    return isOpenCell(pc.x,pc.y);
+  }
+
+  function beginFlowerMove(target){
+    const cell=cellFromPosition(target.x,target.y);
+    target.x=cellCenterX(cell.x);target.y=cellCenterY(cell.y);
+    let next=null;
+    if(target.forcedDir && target.forcedHops>0 && canLeaveCell(cell.x,cell.y,target.forcedDir)){
+      next=target.forcedDir;target.forcedHops--;
+    }else{
+      target.forcedDir=null;target.forcedHops=0;
+      next=chooseFlowerDirection(target,cell.x,cell.y);
+    }
+    if(!next){target.state='idle';target.stateTime=0;target.idleDuration=.6;return;}
+    const d=DIRS[next];
+    target.moveDir=next;target.facing=next;
+    target.hopFromX=target.x;target.hopFromY=target.y;
+    target.hopToX=cellCenterX(cell.x+d.x);target.hopToY=cellCenterY(cell.y+d.y);
+    target.hopProgress=0;target.hopDuration=target.forcedDir ? .58 : .68;
+    target.state='move';target.stateTime=0;
+  }
+
+  function startFlowerEscape(target){
+    target.state='flying';target.flyingTime=0;target.alertState='flying';
+  }
+
+  function updateFlower(target,dt){
+    target.spawnGrace=Math.max(0,target.spawnGrace-dt);
+    target.spawnEffect=Math.max(0,target.spawnEffect-dt);
+    target.wetFlash=Math.max(0,target.wetFlash-dt*2.6);
+    target.floatTime+=dt*2.3;target.stateTime+=dt;
+
+    if(target.state==='flying'){
+      target.flyingTime+=dt;
+      if(target.flyingTime>=.9){
+        const i=flowers.indexOf(target);if(i>=0) flowers.splice(i,1);
+        flowerRespawnTimer=3.0;
+      }
+      return;
+    }
+
+    const visible=roundState==='play' && flowerCanSeePlayer(target);
+    if(visible){
+      if(target.alertState==='none'){
+        target.alertState='warning';target.alertTime=0;target.state='idle';target.stateTime=0;
+      }
+      if(target.alertState==='warning'){
+        target.alertTime+=dt;
+        target.facing=directionTowardPoint(target.x,target.y,player.x,player.y);
+        if(target.alertTime>=target.alertDuration){
+          target.alertState='found';target.escapeTime=0;
+        }
+      }else if(target.alertState==='found'){
+        target.escapeTime+=dt;
+        if(target.escapeTime>=target.escapeDuration) startFlowerEscape(target);
+      }
+    }else if(target.alertState==='warning' || target.alertState==='found'){
+      target.alertState='none';target.alertTime=0;target.escapeTime=0;
+      target.state='idle';target.stateTime=0;target.idleDuration=.35+Math.random()*.35;
+    }
+
+    if(target.alertState==='warning' || target.alertState==='found') return;
+    if(target.state==='idle'){
+      if(target.stateTime>=target.idleDuration) beginFlowerMove(target);
+      return;
+    }
+    if(target.state==='move'){
+      target.hopProgress=Math.min(1,target.stateTime/target.hopDuration);
+      const t=target.hopProgress;
+      const ease=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+      target.x=target.hopFromX+(target.hopToX-target.hopFromX)*ease;
+      target.y=target.hopFromY+(target.hopToY-target.hopFromY)*ease;
+      if(t>=1){
+        target.x=target.hopToX;target.y=target.hopToY;
+        target.state='idle';target.stateTime=0;
+        target.idleDuration=Math.random()<.25?.9+Math.random()*.8:.3+Math.random()*.55;
+      }
+    }
+  }
+
+  function triggerFlowerScore(target){
+    if(roundState!=='play') return;
+    scores++;updateScoreDisplay();scoreMessageTimer=.95;
+    target.scoreFlower=true;
+    const i=flowers.indexOf(target);if(i>=0) flowers.splice(i,1);
+    flowerRespawnTimer=2.4;
   }
 
   function updateScoreDisplay(){
@@ -534,6 +674,20 @@
       const segX=nx-shot.x, segY=ny-shot.y;
       const segLen2=segX*segX+segY*segY || 1;
       let hit=false;
+      // 花モンスターは水の飛んだ方向へ逃げる（スライムとは逆の反応）。
+      for(const target of flowers){
+        if(target.state==='flying') continue;
+        const t=Math.max(0,Math.min(1,((target.x-shot.x)*segX+(target.y-shot.y)*segY)/segLen2));
+        const hitX=shot.x+segX*t,hitY=shot.y+segY*t;
+        const dx=target.x-hitX,dy=target.y-hitY;
+        if(dx*dx+dy*dy<23*23){
+          target.facing=shot.dir;target.forcedDir=shot.dir;target.forcedHops=3;target.wetFlash=1;
+          target.alertState='none';target.alertTime=0;target.escapeTime=0;
+          if(target.state==='idle'){target.stateTime=0;target.idleDuration=.12;}
+          waterShots.splice(i,1);hit=true;break;
+        }
+      }
+      if(hit) continue;
       for(const target of slimes){
         const t=Math.max(0,Math.min(1,((target.x-shot.x)*segX+(target.y-shot.y)*segY)/segLen2));
         const hitX=shot.x+segX*t, hitY=shot.y+segY*t;
@@ -588,6 +742,15 @@
             target.alertTime=0;
           }
         }
+        // 花モンスターは爆竹の音から離れる方向へ逃げる。
+        for(const target of flowers){
+          if(target.state==='flying') continue;
+          const toward=directionTowardPoint(target.x,target.y,f.x,f.y);
+          const away={up:'down',down:'up',left:'right',right:'left'}[toward];
+          target.facing=away;target.forcedDir=away;target.forcedHops=3;
+          target.alertState='none';target.alertTime=0;target.escapeTime=0;
+          if(target.state==='idle'){target.stateTime=0;target.idleDuration=.1;}
+        }
         soundRings.push({x:f.x,y:f.y,life:.55,maxLife:.55});
         firecrackers.splice(i,1);
       }
@@ -614,6 +777,21 @@
     }
     secondSlimeTimer-=dt;
     if(secondSlimeTimer<=0 && slimes.length+scoreRespawnTimers.length<2) spawnSecondSlime();
+    if(flowerRespawnTimer>0){
+      flowerRespawnTimer-=dt;
+      if(flowerRespawnTimer<=0 && flowers.length===0) flowers.push(createGateFlower());
+    }
+    for(const target of [...flowers]){
+      updateFlower(target,dt);
+      if(flowers.includes(target) && target.state!=='flying' && slimeReachedAnyCell(target,HOME_VILLAGE_CELLS)){
+        triggerFlowerScore(target);
+      }
+      // 花が相手村へ入っても失点にはしない。少し後にゲートから戻る。
+      if(flowers.includes(target) && target.state!=='flying' && slimeReachedAnyCell(target,ENEMY_VILLAGE_CELLS)){
+        const i=flowers.indexOf(target);if(i>=0) flowers.splice(i,1);
+        flowerRespawnTimer=2.4;
+      }
+    }
     for(const target of [...slimes]){
       slime=target;
       updateDetection(dt);
@@ -1058,6 +1236,47 @@
     }
   }
 
+  function drawFlower(target){
+    const x=target.x,y=target.y;
+    const fly=target.state==='flying'?Math.min(1,target.flyingTime/.9):0;
+    const floatY=Math.sin(target.floatTime)*3-fly*70;
+    const alpha=1-fly*.92;
+    const scale=1-fly*.45;
+    ctx.save();ctx.globalAlpha=alpha;
+    ctx.fillStyle=`rgba(0,0,0,${.14*(1-fly)})`;
+    ctx.beginPath();ctx.ellipse(x,y+17,15*(1-fly*.45),5*(1-fly*.3),0,0,Math.PI*2);ctx.fill();
+    ctx.translate(x,y+floatY);ctx.scale(scale,scale);
+
+    // 葉の羽根
+    ctx.fillStyle='#65c96b';ctx.strokeStyle='#173b22';ctx.lineWidth=3.5;
+    ctx.beginPath();ctx.ellipse(-14,3,9,5,-.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.ellipse(14,3,9,5,.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+
+    // 花びら（左右対称）
+    const petals=[[0,-13],[-10,-7],[10,-7],[-8,4],[8,4]];
+    ctx.fillStyle='#ff91bf';ctx.strokeStyle='#371f31';ctx.lineWidth=3.5;
+    for(const [px,py] of petals){ctx.beginPath();ctx.ellipse(px,py,8,10,0,0,Math.PI*2);ctx.fill();ctx.stroke();}
+    // 顔の中心
+    ctx.fillStyle=target.wetFlash>0?'#fff7a8':'#ffd95c';
+    ctx.beginPath();ctx.arc(0,-2,11,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-4,-3,1.9,0,Math.PI*2);ctx.arc(4,-3,1.9,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#111';ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(0,1,4,.15*Math.PI,.85*Math.PI);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.75)';ctx.beginPath();ctx.ellipse(-4,-8,3,1.8,-.4,0,Math.PI*2);ctx.fill();
+
+    if(target.alertState==='warning' || target.alertState==='found'){
+      ctx.save();ctx.translate(0,-34);
+      ctx.fillStyle=target.alertState==='warning'?'#fff7cf':'#ff6961';ctx.strokeStyle='#111';ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(0,0,target.alertState==='warning'?12:13,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle=target.alertState==='warning'?'#ef3e34':'#fff';ctx.font=`900 ${target.alertState==='warning'?20:16}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(target.alertState==='warning'?'!':'!!',0,1);ctx.restore();
+    }
+    ctx.restore();
+
+    if(target.spawnEffect>0){
+      const t=1-target.spawnEffect/.7;ctx.save();ctx.strokeStyle=`rgba(255,160,215,${Math.max(0,1-t)})`;ctx.lineWidth=4;
+      ctx.beginPath();ctx.arc(x,y+8,10+t*22,0,Math.PI*2);ctx.stroke();ctx.restore();
+    }
+  }
+
   function drawWater(){
     for(const shot of waterShots){
       ctx.save();
@@ -1117,10 +1336,12 @@
     for(const f of firecrackers) layers.push({depth:f.y+8,kind:'firecracker',f});
     layers.push({depth:player.y+19,kind:'player'});
     for(const target of slimes) layers.push({depth:target.y+19,kind:'slime',slime:target});
+    for(const target of flowers) layers.push({depth:target.y+18,kind:'flower',flower:target});
     layers.sort((a,b)=>a.depth-b.depth || (a.kind==='player'?-1:1));
     for(const item of layers){
       if(item.kind==='player') drawPlayer();
       else if(item.kind==='slime'){ slime=item.slime; drawSlime(); }
+      else if(item.kind==='flower') drawFlower(item.flower);
       else if(item.kind==='gate') drawCentralGate();
       else if(item.kind==='firecracker'){
         const f=item.f;ctx.save();ctx.translate(f.x,f.y+8);ctx.rotate(Math.sin(f.phase)*.08);ctx.fillStyle='#df4b34';ctx.strokeStyle='#111';ctx.lineWidth=3;roundedRect(-8,-5,16,10,4);ctx.fill();ctx.stroke();ctx.strokeStyle='#70411f';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(5,-5);ctx.quadraticCurveTo(10,-12,12,-8);ctx.stroke();ctx.fillStyle=f.timer<.35?'#fff176':'#ff9d2e';ctx.beginPath();ctx.arc(12,-8,2.5,0,Math.PI*2);ctx.fill();ctx.restore();
@@ -1151,7 +1372,7 @@
       ctx.strokeStyle='#111';ctx.lineWidth=5;
       roundedRect(canvas.width/2-118,canvas.height/2-42,236,84,18);ctx.fill();ctx.stroke();
       ctx.fillStyle='#111';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.font='900 24px system-ui,sans-serif';ctx.fillText('相手の村まで届いた！',canvas.width/2,canvas.height/2-9);
+      ctx.font='900 24px system-ui,sans-serif';ctx.fillText('得点！',canvas.width/2,canvas.height/2-9);
       ctx.font='900 18px system-ui,sans-serif';ctx.fillText('得点 +1',canvas.width/2,canvas.height/2+22);
       ctx.restore();
     }
