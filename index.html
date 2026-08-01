@@ -100,7 +100,7 @@ function randomPassageCell(preferRight=false){
 }
 const playerStart=cellCenter(2,ROWS-1);
 const slimeStart=cellCenter(COLS-2,0);
-const player={x:playerStart.x,y:playerStart.y,r:19,dir:'up',speed:190,shotCd:0,crackerCd:0};
+const player={x:playerStart.x,y:playerStart.y,r:19,hitR:15,dir:'up',speed:190,shotCd:0,crackerCd:0};
 const home={x:OX+CELL*.18,y:OY+CELL*(ROWS-1.6),w:35,h:105};
 const goal={x:OX+CELL*(COLS-.72),y:OY+CELL*.55,w:48,h:115};
 function reset(){
@@ -110,7 +110,7 @@ function reset(){
   updateHUD();restartBtn.style.display='none';running=true;last=performance.now();requestAnimationFrame(loop);
 }
 function spawnSlime(x,y,dir='left'){
-  slimes.push({id:nextSlimeId++,x,y,r:23,dir,state:'wander',targetDir:dir,speed:43,hop:0,think:1.4+Math.random()*1.7,seen:false,followOffset:0,blink:0,waterPush:0});
+  slimes.push({id:nextSlimeId++,x,y,r:23,hitR:18,dir,state:'wander',targetDir:dir,speed:43,hop:0,think:1.4+Math.random()*1.7,seen:false,followOffset:0,blink:0,waterPush:0});
 }
 function cellBlocked(x,y,r=10){
   if(x-r<OX||x+r>OX+COLS*CELL||y-r<OY||y+r>OY+ROWS*CELL)return true;
@@ -119,8 +119,36 @@ function cellBlocked(x,y,r=10){
 }
 function circleRect(cx,cy,cr,rx,ry,rw,rh){const nx=Math.max(rx,Math.min(cx,rx+rw)),ny=Math.max(ry,Math.min(cy,ry+rh));return (cx-nx)**2+(cy-ny)**2<cr*cr;}
 function tryMove(o,dx,dy,dt){
-  let nx=o.x+dx*dt,ny=o.y;if(!cellBlocked(nx,ny,o.r))o.x=nx;
-  nx=o.x;ny=o.y+dy*dt;if(!cellBlocked(nx,ny,o.r))o.y=ny;
+  // Move in small steps, and gently pull the character toward the centre of
+  // the corridor. This prevents snagging on the rounded corners of grass.
+  const radius=o.hitR||o.r;
+  const totalX=dx*dt,totalY=dy*dt;
+  const steps=Math.max(1,Math.ceil(Math.max(Math.abs(totalX),Math.abs(totalY))/4));
+  const sx=totalX/steps,sy=totalY/steps;
+  for(let i=0;i<steps;i++){
+    if(Math.abs(sx)>Math.abs(sy)){
+      const row=Math.round((o.y-OY-CELL*.5)/CELL);
+      const centreY=OY+(row+.5)*CELL;
+      const nudge=Math.max(-2.4,Math.min(2.4,centreY-o.y));
+      if(Math.abs(centreY-o.y)<CELL*.28&&!cellBlocked(o.x,o.y+nudge,radius))o.y+=nudge;
+      if(!cellBlocked(o.x+sx,o.y,radius))o.x+=sx;
+      else{
+        // Corner assist: try a small perpendicular slide before giving up.
+        const signs=[Math.sign(centreY-o.y)||1,-(Math.sign(centreY-o.y)||1)];
+        for(const sign of signs){if(!cellBlocked(o.x,o.y+sign*3,radius)&&!cellBlocked(o.x+sx,o.y+sign*3,radius)){o.y+=sign*3;o.x+=sx;break;}}
+      }
+    }else if(Math.abs(sy)>0){
+      const col=Math.round((o.x-OX-CELL*.5)/CELL);
+      const centreX=OX+(col+.5)*CELL;
+      const nudge=Math.max(-2.4,Math.min(2.4,centreX-o.x));
+      if(Math.abs(centreX-o.x)<CELL*.28&&!cellBlocked(o.x+nudge,o.y,radius))o.x+=nudge;
+      if(!cellBlocked(o.x,o.y+sy,radius))o.y+=sy;
+      else{
+        const signs=[Math.sign(centreX-o.x)||1,-(Math.sign(centreX-o.x)||1)];
+        for(const sign of signs){if(!cellBlocked(o.x+sign*3,o.y,radius)&&!cellBlocked(o.x+sign*3,o.y+sy,radius)){o.x+=sign*3;o.y+=sy;break;}}
+      }
+    }
+  }
 }
 function lineBlocked(x1,y1,x2,y2){
   const steps=Math.ceil(Math.hypot(x2-x1,y2-y1)/8);
@@ -150,7 +178,7 @@ function update(dt){
   let md=null;if(keys.ArrowUp||keys.KeyW)md='up';else if(keys.ArrowDown||keys.KeyS)md='down';else if(keys.ArrowLeft||keys.KeyA)md='left';else if(keys.ArrowRight||keys.KeyD)md='right';
   if(md){player.dir=md;const d=DIRS[md];tryMove(player,d.x*player.speed,d.y*player.speed,dt);}
   for(const p of projectiles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;if(cellBlocked(p.x,p.y,p.r)){p.life=0;splash(p.x,p.y,5);continue;}
-    for(const s of slimes){if(p.life>0&&Math.hypot(p.x-s.x,p.y-s.y)<p.r+s.r){p.life=0;splash(p.x,p.y,12);s.targetDir=p.dir;s.dir=p.dir;s.state='water';s.waterPush=2.6;s.think=2.8;s.blink=.25;break;}}
+    for(const s of slimes){if(p.life>0&&Math.hypot(p.x-s.x,p.y-s.y)<p.r+s.r){p.life=0;splash(p.x,p.y,12);const reverse={up:'down',down:'up',left:'right',right:'left'};s.targetDir=reverse[p.dir];s.dir=s.targetDir;s.state='water';s.waterPush=2.6;s.think=2.8;s.blink=.25;break;}}
   }
   projectiles=projectiles.filter(p=>p.life>0);
   for(const f of firecrackers){f.t-=dt;f.life-=dt;if(!f.boom&&f.t<=0){f.boom=true;smoke(f.x,f.y);showMessage('パンッ！');for(const s of slimes){const dx=f.x-s.x,dy=f.y-s.y;if(Math.abs(dx)>Math.abs(dy))s.dir=dx<0?'left':'right';else s.dir=dy<0?'up':'down';s.state='startled';s.think=1.5;}}}
@@ -199,15 +227,38 @@ function drawPlayer(){
   ctx.save();ctx.rotate(d.a);ctx.fillStyle='#42bde6';ctx.strokeStyle='#111';ctx.lineWidth=5;roundRect(8,-6,28,13,5,true,true);ctx.fillStyle='#227ead';roundRect(17,5,10,16,4,true,true);ctx.restore();ctx.restore();
 }
 function drawSlime(s){
-  const d=DIRS[s.dir],jump=Math.max(0,Math.sin(s.hop))*7,squash=1+Math.sin(s.hop)*.05;ctx.save();ctx.translate(s.x,s.y-jump);ctx.scale(1/squash,squash);ctx.lineJoin='round';ctx.strokeStyle='#111';ctx.lineWidth=6;
-  ctx.fillStyle=s.state==='follow'?'#68dd6d':'#58d65b';ctx.beginPath();ctx.moveTo(-24,14);ctx.quadraticCurveTo(-29,-10,-14,-22);ctx.quadraticCurveTo(0,-34,15,-22);ctx.quadraticCurveTo(30,-8,25,15);ctx.quadraticCurveTo(5,27,-24,14);ctx.closePath();ctx.fill();ctx.stroke();
-  // Slimes have simple black eyes, not human-like white eyes.
-  // The tiny offset only hints at facing direction and avoids restless eye motion.
-  const ex=d.x*1.5,ey=d.y*1.2;
-  ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-8+ex,-7+ey,5.2,0,Math.PI*2);ctx.arc(8+ex,-7+ey,5.2,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.9)';ctx.beginPath();ctx.arc(-9.5+ex,-8.7+ey,1.35,0,Math.PI*2);ctx.arc(6.5+ex,-8.7+ey,1.35,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle='#111';ctx.lineWidth=3;ctx.beginPath();if(s.state==='follow'){ctx.arc(0,6,8,0,Math.PI)}else if(s.blink>0){ctx.arc(0,7,5,0,Math.PI*2)}else{ctx.arc(0,5,6,.15,Math.PI-.15)}ctx.stroke();
-  if(s.state==='follow'){ctx.fillStyle='#ff9fa8';ctx.beginPath();ctx.arc(-18,4,4,0,Math.PI*2);ctx.arc(18,4,4,0,Math.PI*2);ctx.fill();}
+  const jump=Math.max(0,Math.sin(s.hop))*7,squash=1+Math.sin(s.hop)*.05;
+  ctx.save();ctx.translate(s.x,s.y-jump);ctx.scale(1/squash,squash);
+  ctx.lineJoin='round';ctx.lineCap='round';ctx.strokeStyle='#111';ctx.lineWidth=6;
+  ctx.fillStyle=s.state==='follow'?'#68dd6d':'#58d65b';
+
+  // The silhouette changes subtly for each of the four directions.
+  if(s.dir==='left'||s.dir==='right'){
+    const flip=s.dir==='left'?-1:1;ctx.scale(flip,1);
+    ctx.beginPath();ctx.moveTo(-23,14);ctx.quadraticCurveTo(-29,-7,-15,-21);
+    ctx.quadraticCurveTo(2,-33,18,-20);ctx.quadraticCurveTo(31,-8,27,8);
+    ctx.quadraticCurveTo(24,18,13,20);ctx.quadraticCurveTo(-4,28,-23,14);ctx.closePath();ctx.fill();ctx.stroke();
+    // One profile eye with a tiny highlight; no white of the eye.
+    ctx.fillStyle='#111';ctx.beginPath();ctx.arc(12,-8,6,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();ctx.arc(10,-10,1.5,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#111';ctx.lineWidth=3;ctx.beginPath();ctx.arc(20,4,4,.35,Math.PI-.35);ctx.stroke();
+    if(s.state==='follow'){ctx.fillStyle='#ff9fa8';ctx.beginPath();ctx.arc(4,5,4,0,Math.PI*2);ctx.fill();}
+  }else{
+    ctx.beginPath();ctx.moveTo(-24,14);ctx.quadraticCurveTo(-29,-10,-14,-22);
+    ctx.quadraticCurveTo(0,-34,15,-22);ctx.quadraticCurveTo(30,-8,25,15);
+    ctx.quadraticCurveTo(5,27,-24,14);ctx.closePath();ctx.fill();ctx.stroke();
+    if(s.dir==='down'){
+      // Front view: two simple black eyes with tiny highlights.
+      ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-8,-7,5.4,0,Math.PI*2);ctx.arc(8,-7,5.4,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();ctx.arc(-9.5,-8.8,1.4,0,Math.PI*2);ctx.arc(6.5,-8.8,1.4,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#111';ctx.lineWidth=3;ctx.beginPath();if(s.state==='follow')ctx.arc(0,6,8,0,Math.PI);else if(s.blink>0)ctx.arc(0,7,5,0,Math.PI*2);else ctx.arc(0,5,6,.15,Math.PI-.15);ctx.stroke();
+      if(s.state==='follow'){ctx.fillStyle='#ff9fa8';ctx.beginPath();ctx.arc(-18,4,4,0,Math.PI*2);ctx.arc(18,4,4,0,Math.PI*2);ctx.fill();}
+    }else{
+      // Back view: no face. A small glossy mark makes the direction readable.
+      ctx.fillStyle='rgba(255,255,255,.28)';ctx.beginPath();ctx.ellipse(-7,-17,5,2.5,-.35,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='rgba(20,80,32,.5)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,5,8,.15,Math.PI-.15);ctx.stroke();
+    }
+  }
   ctx.restore();
 }
 function drawProjectiles(){for(const p of projectiles){ctx.save();ctx.strokeStyle='#dffaff';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(p.x-p.vx*.12,p.y-p.vy*.12);ctx.lineTo(p.x,p.y);ctx.stroke();ctx.fillStyle='#5dd4ff';ctx.strokeStyle='#111';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();}}
