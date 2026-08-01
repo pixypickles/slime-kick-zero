@@ -800,27 +800,23 @@
     ctx.fill();
     ctx.stroke();
 
-    // 前側の葉。短く斜めに重ね、誰が見ても草むらに見えるようにする。
-    const blades=[
-      [11,36,9,24],[17,38,18,20],[23,37,25,17],
-      [29,38,31,21],[35,36,39,24],[14,34,7,28],
-      [32,34,42,29]
+    // 葉は5枚だけ。細い筋は描かずシンプルに。
+    ctx.fillStyle='#35c95d';
+    ctx.strokeStyle='#102b18';
+    ctx.lineWidth=3.2;
+    const leaves=[
+      [10,37,8,18,16,20],
+      [18,38,18,12,24,18],
+      [24,39,24,8,30,18],
+      [30,38,31,13,37,18],
+      [37,37,40,19,42,22]
     ];
-    ctx.strokeStyle='#63d071';
-    ctx.lineWidth=2.7;
-    ctx.lineCap='round';
-    for(const [x1,y1,x2,y2] of blades){
+    for(const l of leaves){
       ctx.beginPath();
-      ctx.moveTo(px+x1,py+y1);
-      ctx.quadraticCurveTo(px+(x1+x2)/2-1,py+(y1+y2)/2,px+x2,py+y2);
+      ctx.moveTo(px+l[0],py+l[1]);
+      ctx.quadraticCurveTo(px+l[2],py+l[3],px+l[4],py+l[5]);
       ctx.stroke();
     }
-
-    // 奥側の葉に暗い筋を少し入れて密度を出す。
-    ctx.strokeStyle='rgba(20,91,42,.65)';
-    ctx.lineWidth=2.2;
-    ctx.beginPath();ctx.moveTo(px+10,py+34);ctx.lineTo(px+14,py+22);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(px+38,py+35);ctx.lineTo(px+35,py+23);ctx.stroke();
 
     ctx.restore();
   }
