@@ -110,7 +110,7 @@ function reset(){
   updateHUD();restartBtn.style.display='none';running=true;last=performance.now();requestAnimationFrame(loop);
 }
 function spawnSlime(x,y,dir='left'){
-  slimes.push({id:nextSlimeId++,x,y,r:23,hitR:18,dir,state:'wander',targetDir:dir,speed:43,hop:0,think:1.4+Math.random()*1.7,seen:false,followOffset:0,blink:0,waterPush:0});
+  slimes.push({id:nextSlimeId++,x,y,r:22,hitR:15,dir,state:'wander',targetDir:dir,speed:46,hop:0,think:.25+Math.random()*.45,seen:false,followOffset:0,blink:0,waterPush:0});
 }
 function cellBlocked(x,y,r=10){
   if(x-r<OX||x+r>OX+COLS*CELL||y-r<OY||y+r>OY+ROWS*CELL)return true;
@@ -156,7 +156,7 @@ function lineBlocked(x1,y1,x2,y2){
   return false;
 }
 function canSee(s,tx,ty){
-  const d=Math.hypot(tx-s.x,ty-s.y);if(d>210||lineBlocked(s.x,s.y,tx,ty))return false;
+  const d=Math.hypot(tx-s.x,ty-s.y);if(d>CELL*3.7||lineBlocked(s.x,s.y,tx,ty))return false;
   const dir=DIRS[s.dir],vx=(tx-s.x)/d,vy=(ty-s.y)/d;return dir.x*vx+dir.y*vy>.42;
 }
 function fireWater(){
@@ -185,7 +185,10 @@ function update(dt){
   firecrackers=firecrackers.filter(f=>f.life>0);
   for(const s of slimes){
     s.hop=(s.hop+dt*(s.state==='follow'?8:5))%(Math.PI*2);s.blink=Math.max(0,s.blink-dt);
-    if(s.state!=='follow'&&canSee(s,player.x,player.y)){s.state='follow';s.seen=true;s.followOffset=Math.random()*.3;showMessage('見つかった！ スライムが懐いた');}
+    if(s.state!=='follow'&&canSee(s,player.x,player.y)){
+      // 見つかった時点でスライムが駆け寄った扱いにして即失点。
+      miss++;showMessage('見つかった！ スライムがついて来た… -1');respawnSlime(s);continue;
+    }
     if(s.state==='follow'){
       const dx=player.x-s.x,dy=player.y-s.y,d=Math.hypot(dx,dy)||1;
       if(Math.abs(dx)>Math.abs(dy))s.dir=dx<0?'left':'right';else s.dir=dy<0?'up':'down';
@@ -193,16 +196,29 @@ function update(dt){
       if(circleRect(s.x,s.y,s.r,home.x-20,home.y,home.w+35,home.h)){miss++;showMessage('自分の村までついて来た… -1');respawnSlime(s);}
     }else{
       s.think-=dt;if(s.state==='water'){s.waterPush-=dt;if(s.waterPush<=0){s.state='wander';s.think=.5;}}
-      if(s.think<=0){s.think=1.2+Math.random()*2.2;if(Math.random()<.72){const names=['up','down','left','right'];s.dir=names[Math.floor(Math.random()*4)];}s.state='wander';}
-      const d=DIRS[s.dir],spd=s.state==='water'?34:26;
-      const ox=s.x,oy=s.y;tryMove(s,d.x*spd,d.y*spd,dt);if(Math.abs(s.x-ox)+Math.abs(s.y-oy)<.5){const names=['up','down','left','right'].filter(n=>n!==s.dir);s.dir=names[Math.floor(Math.random()*names.length)];s.think=.2;}
+      if(s.think<=0){
+        s.think=.35+Math.random()*.65;
+        // 進める方向だけから選び、立ち止まる時間を作らない。
+        const names=['up','down','left','right'];
+        const valid=names.filter(n=>{const q=DIRS[n];return !cellBlocked(s.x+q.x*20,s.y+q.y*20,s.hitR);});
+        const forward=valid.includes(s.dir)&&Math.random()<.58?s.dir:null;
+        s.dir=forward||valid[Math.floor(Math.random()*valid.length)]||s.dir;
+        s.state='wander';
+      }
+      const d=DIRS[s.dir],spd=s.state==='water'?38:34;
+      const ox=s.x,oy=s.y;tryMove(s,d.x*spd,d.y*spd,dt);
+      if(Math.abs(s.x-ox)+Math.abs(s.y-oy)<.35){
+        const names=['up','down','left','right'];
+        const valid=names.filter(n=>{const q=DIRS[n];return !cellBlocked(s.x+q.x*22,s.y+q.y*22,s.hitR);});
+        s.dir=valid[Math.floor(Math.random()*valid.length)]||s.dir;s.think=.05;
+      }
       if(circleRect(s.x,s.y,s.r,goal.x,goal.y,goal.w,goal.h)){score++;showMessage('村へ案内できた！ +1');respawnSlime(s);}
     }
   }
   for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt;}
   particles=particles.filter(p=>p.life>0);updateHUD();
 }
-function respawnSlime(s){const spot=randomPassageCell(true),pos=cellCenter(spot.c,spot.r);s.x=pos.x;s.y=pos.y;s.dir='left';s.state='wander';s.seen=false;s.think=1.2;s.waterPush=0;}
+function respawnSlime(s){const spot=randomPassageCell(true),pos=cellCenter(spot.c,spot.r);s.x=pos.x;s.y=pos.y;s.dir='left';s.state='wander';s.seen=false;s.think=.15+Math.random()*.35;s.waterPush=0;}
 function endGame(){running=false;restartBtn.style.display='inline-block';showMessage(`終了！ 得点 ${score} / 失点 ${miss}`);}
 function showMessage(t){msgEl.textContent=t;msgEl.style.opacity=1;clearTimeout(showMessage.t);showMessage.t=setTimeout(()=>msgEl.style.opacity=0,1500);}
 function updateHUD(){scoreEl.textContent=score;missEl.textContent=miss;timeEl.textContent=Math.ceil(remaining);countEl.textContent=slimes.length;}
@@ -227,41 +243,39 @@ function drawPlayer(){
   ctx.save();ctx.rotate(d.a);ctx.fillStyle='#42bde6';ctx.strokeStyle='#111';ctx.lineWidth=5;roundRect(8,-6,28,13,5,true,true);ctx.fillStyle='#227ead';roundRect(17,5,10,16,4,true,true);ctx.restore();ctx.restore();
 }
 function drawSlime(s){
-  const jump=Math.max(0,Math.sin(s.hop))*7,squash=1+Math.sin(s.hop)*.05;
-  ctx.save();ctx.translate(s.x,s.y-jump);ctx.scale(1/squash,squash);
+  const jump=Math.max(0,Math.sin(s.hop))*5;
+  const pulse=Math.sin(s.hop)*.035;
+  ctx.save();ctx.translate(s.x,s.y-jump);ctx.scale(1-pulse,1+pulse);
   ctx.lineJoin='round';ctx.lineCap='round';ctx.strokeStyle='#111';ctx.lineWidth=6;
-  ctx.fillStyle=s.state==='follow'?'#68dd6d':'#58d65b';
+  ctx.fillStyle='#59d65f';
 
-  // The silhouette changes subtly for each of the four directions.
-  if(s.dir==='left'||s.dir==='right'){
-    const flip=s.dir==='left'?-1:1;ctx.scale(flip,1);
-    ctx.beginPath();ctx.moveTo(-23,14);ctx.quadraticCurveTo(-29,-7,-15,-21);
-    ctx.quadraticCurveTo(2,-33,18,-20);ctx.quadraticCurveTo(31,-8,27,8);
-    ctx.quadraticCurveTo(24,18,13,20);ctx.quadraticCurveTo(-4,28,-23,14);ctx.closePath();ctx.fill();ctx.stroke();
-    // One profile eye with a tiny highlight; no white of the eye.
-    ctx.fillStyle='#111';ctx.beginPath();ctx.arc(12,-8,6,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();ctx.arc(10,-10,1.5,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle='#111';ctx.lineWidth=3;ctx.beginPath();ctx.arc(20,4,4,.35,Math.PI-.35);ctx.stroke();
-    if(s.state==='follow'){ctx.fillStyle='#ff9fa8';ctx.beginPath();ctx.arc(4,5,4,0,Math.PI*2);ctx.fill();}
+  // 低くて丸い、ぷにっとしたシルエット。
+  ctx.beginPath();
+  ctx.moveTo(-25,12);
+  ctx.bezierCurveTo(-28,2,-25,-12,-16,-18);
+  ctx.bezierCurveTo(-10,-25,-4,-27,0,-22);
+  ctx.bezierCurveTo(6,-29,14,-24,17,-18);
+  ctx.bezierCurveTo(27,-12,29,1,25,12);
+  ctx.bezierCurveTo(18,22,8,22,0,19);
+  ctx.bezierCurveTo(-9,24,-19,21,-25,12);
+  ctx.closePath();ctx.fill();ctx.stroke();
+
+  const eye=(x,y,r=5)=>{ctx.fillStyle='#111';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x-1.6,y-1.7,1.25,0,Math.PI*2);ctx.fill();};
+  ctx.strokeStyle='#111';ctx.lineWidth=3;
+  if(s.dir==='down'){
+    eye(-8,-6);eye(8,-6);
+    ctx.beginPath();ctx.arc(0,5,6,.15,Math.PI-.15);ctx.stroke();
+  }else if(s.dir==='up'){
+    // 背中側。顔は見せず、小さなつやだけ。
+    ctx.fillStyle='rgba(255,255,255,.32)';ctx.beginPath();ctx.ellipse(-7,-14,5,2.4,-.35,0,Math.PI*2);ctx.fill();
+  }else if(s.dir==='right'){
+    eye(10,-6,5.5);ctx.beginPath();ctx.arc(17,5,4,.3,Math.PI-.4);ctx.stroke();
   }else{
-    ctx.beginPath();ctx.moveTo(-24,14);ctx.quadraticCurveTo(-29,-10,-14,-22);
-    ctx.quadraticCurveTo(0,-34,15,-22);ctx.quadraticCurveTo(30,-8,25,15);
-    ctx.quadraticCurveTo(5,27,-24,14);ctx.closePath();ctx.fill();ctx.stroke();
-    if(s.dir==='down'){
-      // Front view: two simple black eyes with tiny highlights.
-      ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-8,-7,5.4,0,Math.PI*2);ctx.arc(8,-7,5.4,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();ctx.arc(-9.5,-8.8,1.4,0,Math.PI*2);ctx.arc(6.5,-8.8,1.4,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle='#111';ctx.lineWidth=3;ctx.beginPath();if(s.state==='follow')ctx.arc(0,6,8,0,Math.PI);else if(s.blink>0)ctx.arc(0,7,5,0,Math.PI*2);else ctx.arc(0,5,6,.15,Math.PI-.15);ctx.stroke();
-      if(s.state==='follow'){ctx.fillStyle='#ff9fa8';ctx.beginPath();ctx.arc(-18,4,4,0,Math.PI*2);ctx.arc(18,4,4,0,Math.PI*2);ctx.fill();}
-    }else{
-      // Back view: no face. A small glossy mark makes the direction readable.
-      ctx.fillStyle='rgba(255,255,255,.28)';ctx.beginPath();ctx.ellipse(-7,-17,5,2.5,-.35,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle='rgba(20,80,32,.5)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,5,8,.15,Math.PI-.15);ctx.stroke();
-    }
+    eye(-10,-6,5.5);ctx.beginPath();ctx.arc(-17,5,4,.4,Math.PI-.3);ctx.stroke();
   }
+  if(s.blink>0){ctx.fillStyle='rgba(120,210,255,.55)';ctx.beginPath();ctx.arc(0,-1,25,0,Math.PI*2);ctx.fill();}
   ctx.restore();
 }
-function drawProjectiles(){for(const p of projectiles){ctx.save();ctx.strokeStyle='#dffaff';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(p.x-p.vx*.12,p.y-p.vy*.12);ctx.lineTo(p.x,p.y);ctx.stroke();ctx.fillStyle='#5dd4ff';ctx.strokeStyle='#111';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();}}
 function drawFirecrackers(){for(const f of firecrackers){if(f.boom)continue;ctx.save();ctx.translate(f.x,f.y);ctx.fillStyle='#e94f45';ctx.strokeStyle='#111';ctx.lineWidth=4;roundRect(-8,-14,16,28,5,true,true);ctx.strokeStyle='#f5c64c';ctx.beginPath();ctx.moveTo(0,-14);ctx.quadraticCurveTo(8,-25,12,-18);ctx.stroke();ctx.restore();}}
 function drawParticles(){for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*1.8);ctx.fillStyle=p.type==='water'?'#73dbff':'#555';ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;}
 function roundRect(x,y,w,h,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill)ctx.fill();if(stroke)ctx.stroke();}
