@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.05</title>
+<title>SLIME KICK ZERO v0.06</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -45,12 +45,12 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.05　スマホ長押し対策</div>
+      <div class="sub">v0.06　スライムが歩くだけ</div>
       <div class="note">
-        通路中央の見えないレールを走ります。<br>
-        曲がりたい方向を少し早めに押すと、交差点まで進んで自然に曲がります。<br>
-        茂みは通れませんが、手前に来るとキャラの下半身を隠します。<br>
-        方向ボタンを長押ししても選択メニューは表示されません。
+        人とスライムが、通路中央の見えないレール上を動きます。<br>
+        スライムは通路を気ままに進み、交差点で方向を選びます。<br>
+        この版では、まだ水鉄砲・発見判定・得点はありません。<br>
+        まずはスライムの動きと見た目を確認する版です。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -58,7 +58,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.05 レール＋茂み</span>
+      <span>v0.06 スライムが歩くだけ</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
     <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
@@ -110,6 +110,16 @@
     lastMoveDir: 'up'
   };
 
+  const slime = {
+    x: TILE * 11.5,
+    y: TILE * 7.5,
+    speed: 72,
+    facing: 'left',
+    moveDir: 'left',
+    wobble: 0,
+    decisionCooldown: 0
+  };
+
   const keys = {up:false,down:false,left:false,right:false};
   const pressOrder = [];
   const DIRS = {
@@ -132,6 +142,15 @@
     player.turnTarget = null;
     player.lastMoveDir = 'up';
     pressOrder.length = 0;
+  }
+
+  function resetSlime(){
+    slime.x = TILE * 11.5;
+    slime.y = TILE * 7.5;
+    slime.facing = 'left';
+    slime.moveDir = 'left';
+    slime.wobble = 0;
+    slime.decisionCooldown = 0;
   }
 
   function cellFromPosition(x,y){
@@ -185,7 +204,65 @@
     return null;
   }
 
+  function availableDirections(cx,cy){
+    return Object.keys(DIRS).filter(dir=>canLeaveCell(cx,cy,dir));
+  }
+
+  function chooseSlimeDirection(cx,cy){
+    const open=availableDirections(cx,cy);
+    if(!open.length) return null;
+    const reverse={up:'down',down:'up',left:'right',right:'left'}[slime.moveDir];
+    let choices=open.filter(dir=>dir!==reverse);
+    if(!choices.length) choices=open;
+    // 直進を少し優先し、気まぐれすぎて落ち着かない動きを防ぐ。
+    if(choices.includes(slime.moveDir) && Math.random()<0.58) return slime.moveDir;
+    return choices[Math.floor(Math.random()*choices.length)];
+  }
+
+  function updateSlime(dt){
+    slime.wobble += dt * 8;
+    slime.decisionCooldown=Math.max(0,slime.decisionCooldown-dt);
+    let remaining=slime.speed*dt;
+    while(remaining>0.001){
+      const cell=cellFromPosition(slime.x,slime.y);
+      const cx=cellCenterX(cell.x),cy=cellCenterY(cell.y);
+      // レール中央へ吸着させる。
+      const pull=Math.min(1,dt*20);
+      if(slime.moveDir==='left'||slime.moveDir==='right') slime.y+=(cy-slime.y)*pull;
+      else slime.x+=(cx-slime.x)*pull;
+
+      // セル中央に来たときだけ次の方向を決める。
+      const centerDist=Math.abs(slime.x-cx)+Math.abs(slime.y-cy);
+      if(centerDist<1.6 && slime.decisionCooldown<=0){
+        slime.x=cx;slime.y=cy;
+        const next=chooseSlimeDirection(cell.x,cell.y);
+        if(next){slime.moveDir=next;slime.facing=next;}
+        slime.decisionCooldown=.12;
+      }
+
+      const d=DIRS[slime.moveDir];
+      if(!d){break;}
+      const boundaryX=d.x>0?(cell.x+1)*TILE:d.x<0?cell.x*TILE:slime.x;
+      const boundaryY=d.y>0?(cell.y+1)*TILE:d.y<0?cell.y*TILE:slime.y;
+      const dist=d.x?Math.abs(boundaryX-slime.x):Math.abs(boundaryY-slime.y);
+      const travel=Math.min(remaining,dist+.001);
+      slime.x+=d.x*travel;slime.y+=d.y*travel;remaining-=travel;
+      if(travel>=dist-.002){
+        const nx=cell.x+d.x,ny=cell.y+d.y;
+        if(!isOpenCell(nx,ny)){
+          slime.x=cx;slime.y=cy;
+          const next=chooseSlimeDirection(cell.x,cell.y);
+          if(!next) break;
+          slime.moveDir=next;slime.facing=next;slime.decisionCooldown=.12;
+        }else{
+          slime.x+=d.x*.01;slime.y+=d.y*.01;
+        }
+      }
+    }
+  }
+
   function update(dt){
+    updateSlime(dt);
     const desired=newestHeldDirection();
     if(desired){
       player.facing=desired;
@@ -343,6 +420,50 @@
     ctx.restore();
   }
 
+  function drawSlime(){
+    const x=slime.x,y=slime.y;
+    const bounce=Math.sin(slime.wobble)*1.6;
+    const squash=1+Math.sin(slime.wobble*2)*.035;
+    ctx.save();
+    ctx.translate(x,y+bounce);
+    ctx.scale(squash,1/squash);
+    ctx.translate(-x,-y);
+    ctx.fillStyle='rgba(0,0,0,.17)';
+    ctx.beginPath();ctx.ellipse(x,y+17,18,6,0,0,Math.PI*2);ctx.fill();
+
+    ctx.fillStyle='#79df73';ctx.strokeStyle='#111';ctx.lineWidth=5;ctx.lineJoin='round';
+    ctx.beginPath();
+    ctx.moveTo(x-20,y+12);
+    ctx.quadraticCurveTo(x-22,y-5,x-12,y-15);
+    ctx.quadraticCurveTo(x-4,y-23,x+3,y-17);
+    ctx.quadraticCurveTo(x+12,y-20,x+18,y-9);
+    ctx.quadraticCurveTo(x+24,y+1,x+20,y+12);
+    ctx.quadraticCurveTo(x+12,y+21,x,y+19);
+    ctx.quadraticCurveTo(x-13,y+22,x-20,y+12);
+    ctx.closePath();ctx.fill();ctx.stroke();
+
+    // 白目は使わず、黒目と小さな光沢だけ。向きは4方向。
+    const eyeY=y-5;
+    ctx.fillStyle='#111';
+    if(slime.facing==='up'){
+      // 後ろ向きは顔を見せず、小さな艶だけ。
+      ctx.fillStyle='rgba(255,255,255,.7)';
+      ctx.beginPath();ctx.ellipse(x-6,y-12,4,2.2,-.5,0,Math.PI*2);ctx.fill();
+    }else{
+      let eyes=[];
+      if(slime.facing==='left') eyes=[[x-10,eyeY],[x-2,eyeY-1]];
+      else if(slime.facing==='right') eyes=[[x+2,eyeY-1],[x+10,eyeY]];
+      else eyes=[[x-7,eyeY],[x+7,eyeY]];
+      for(const [ex,ey] of eyes){
+        ctx.fillStyle='#111';ctx.beginPath();ctx.arc(ex,ey,4.1,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='white';ctx.beginPath();ctx.arc(ex-1.2,ey-1.4,1.15,0,Math.PI*2);ctx.fill();
+      }
+      ctx.strokeStyle='#111';ctx.lineWidth=2.5;ctx.lineCap='round';
+      ctx.beginPath();ctx.arc(x,y+5,5,0.15*Math.PI,.85*Math.PI);ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     drawGround();
@@ -356,9 +477,11 @@
       }
     }
     layers.push({depth:player.y+19,kind:'player'});
+    layers.push({depth:slime.y+19,kind:'slime'});
     layers.sort((a,b)=>a.depth-b.depth || (a.kind==='player'?-1:1));
     for(const item of layers){
       if(item.kind==='player') drawPlayer();
+      else if(item.kind==='slime') drawSlime();
       else drawBush(item.x,item.y);
     }
   }
@@ -370,7 +493,7 @@
   }
 
   function start(){
-    resetPlayer();setScreen('game');running=true;last=performance.now();draw();requestAnimationFrame(loop);
+    resetPlayer();resetSlime();setScreen('game');running=true;last=performance.now();draw();requestAnimationFrame(loop);
   }
   function stop(){running=false;Object.keys(keys).forEach(k=>keys[k]=false);setScreen('title');}
 
