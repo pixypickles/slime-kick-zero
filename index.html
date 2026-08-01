@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.29</title>
+<title>SLIME KICK ZERO v0.31</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -51,7 +51,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.26　中央ブロックゲート</div>
+      <div class="sub">v0.31　丸い生け垣</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
@@ -66,7 +66,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.26 中央ブロックゲート</span>
+      <span>v0.31 丸い生け垣</span>
       <span id="scoreDisplay">得点 0</span>
       <span id="missDisplay">失点 0</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
@@ -774,49 +774,63 @@
   function drawBush(x,y){
     const px=x*TILE, py=y*TILE;
     const cx=px+TILE/2;
-    const ground=py+TILE-5;
+    const baseY=py+TILE-7;
     ctx.save();
 
-    // 地面に落ちる柔らかい影。
-    ctx.fillStyle='rgba(25,72,30,.18)';
+    // 柔らかい地面の影。
+    ctx.fillStyle='rgba(31,76,29,.20)';
     ctx.beginPath();
-    ctx.ellipse(cx,ground+1,TILE*.36,5.5,0,0,Math.PI*2);
+    ctx.ellipse(cx,baseY+5,TILE*.37,5.5,0,0,Math.PI*2);
     ctx.fill();
 
-    // 低い草むらの土台。箱ではなく、横に広がる葉の集まりにする。
-    ctx.fillStyle='#2f8f45';
+    // 生け垣の根元。少しだけ土・枝が見える。
+    ctx.fillStyle='#8a5a2b';
+    ctx.strokeStyle='#102b18';
+    ctx.lineWidth=4.5;
+    ctx.lineJoin='round';
+    roundedRect(px+7,baseY-7,TILE-14,11,4);
+    ctx.fill();
+    ctx.stroke();
+
+    // 丸い低木の外形。黒に近い濃緑の太線で侵入不可感を残す。
+    ctx.fillStyle='#4fae2d';
     ctx.strokeStyle='#102b18';
     ctx.lineWidth=5;
     ctx.lineJoin='round';
     ctx.beginPath();
-    ctx.moveTo(px+6,ground);
-    ctx.quadraticCurveTo(px+5,py+29,px+12,py+25);
-    ctx.quadraticCurveTo(px+12,py+16,px+19,py+24);
-    ctx.quadraticCurveTo(px+22,py+9,px+27,py+23);
-    ctx.quadraticCurveTo(px+34,py+14,px+34,py+25);
-    ctx.quadraticCurveTo(px+43,py+20,px+42,ground);
-    ctx.quadraticCurveTo(cx,ground+4,px+6,ground);
+    ctx.moveTo(px+5,baseY-4);
+    ctx.quadraticCurveTo(px+3,py+29,px+10,py+25);
+    ctx.quadraticCurveTo(px+6,py+17,px+14,py+16);
+    ctx.quadraticCurveTo(px+14,py+8,px+22,py+10);
+    ctx.quadraticCurveTo(px+28,py+3,px+33,py+11);
+    ctx.quadraticCurveTo(px+41,py+8,px+42,py+18);
+    ctx.quadraticCurveTo(px+48,py+22,px+43,baseY-3);
+    ctx.quadraticCurveTo(cx,baseY+2,px+5,baseY-4);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    // 葉は5枚だけ。細い筋は描かずシンプルに。
-    ctx.fillStyle='#35c95d';
-    ctx.strokeStyle='#102b18';
-    ctx.lineWidth=3.2;
-    const leaves=[
-      [10,37,8,18,16,20],
-      [18,38,18,12,24,18],
-      [24,39,24,8,30,18],
-      [30,38,31,13,37,18],
-      [37,37,40,19,42,22]
-    ];
-    for(const l of leaves){
-      ctx.beginPath();
-      ctx.moveTo(px+l[0],py+l[1]);
-      ctx.quadraticCurveTo(px+l[2],py+l[3],px+l[4],py+l[5]);
-      ctx.stroke();
-    }
+    // 手前側の明るい葉のまとまり。細い筋は使わない。
+    ctx.fillStyle='#66c83b';
+    ctx.beginPath();
+    ctx.moveTo(px+8,baseY-8);
+    ctx.quadraticCurveTo(px+7,py+29,px+13,py+27);
+    ctx.quadraticCurveTo(px+15,py+20,px+21,py+25);
+    ctx.quadraticCurveTo(px+25,py+17,px+30,py+25);
+    ctx.quadraticCurveTo(px+36,py+20,px+39,py+28);
+    ctx.quadraticCurveTo(px+43,py+29,px+41,baseY-7);
+    ctx.quadraticCurveTo(cx,baseY-2,px+8,baseY-8);
+    ctx.closePath();
+    ctx.fill();
+
+    // 下側を少し濃くして、丸い生け垣の厚みを出す。
+    ctx.fillStyle='rgba(24,112,38,.45)';
+    ctx.beginPath();
+    ctx.moveTo(px+6,baseY-3);
+    ctx.quadraticCurveTo(cx,baseY+3,px+42,baseY-3);
+    ctx.quadraticCurveTo(px+38,baseY+1,px+10,baseY+1);
+    ctx.closePath();
+    ctx.fill();
 
     ctx.restore();
   }
