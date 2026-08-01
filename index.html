@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.06</title>
+<title>SLIME KICK ZERO v0.08</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -45,7 +45,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.06　スライムが歩くだけ</div>
+      <div class="sub">v0.08　水色ぷにぷにスライム</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
@@ -58,7 +58,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.06 スライムが歩くだけ</span>
+      <span>v0.08 水色ぷにぷにスライム</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
     <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
@@ -449,49 +449,81 @@
 
   function drawSlime(){
     const x=slime.x,y=slime.y;
-    const hopArc=slime.state==='hop' ? Math.sin(slime.hopProgress*Math.PI)*13 : 0;
-    const idleBob=slime.state==='idle' ? Math.sin(slime.wobble)*.7 : 0;
-    const bounce=idleBob-hopArc;
+    const hopLift=slime.state==='hop' ? Math.sin(slime.hopProgress*Math.PI)*13 : 0;
+    const idleBob=slime.state==='idle' ? Math.sin(slime.wobble)*.55 : 0;
+    const bodyY=y-hopLift+idleBob;
     const landing=slime.landingPulse;
-    const squash=slime.state==='hop'
-      ? 1-Math.sin(slime.hopProgress*Math.PI)*.07
-      : 1+landing*.13+Math.sin(slime.wobble*2)*.012;
+    const air=Math.sin(slime.hopProgress*Math.PI);
+
+    // 影は地面に残す。跳ぶほど少し小さく薄くなる。
     ctx.save();
-    ctx.translate(x,y+bounce);
-    ctx.scale(squash,1/squash);
-    ctx.translate(-x,-y);
-    ctx.fillStyle='rgba(0,0,0,.17)';
-    ctx.beginPath();ctx.ellipse(x,y+17,18,6,0,0,Math.PI*2);ctx.fill();
-
-    ctx.fillStyle='#79df73';ctx.strokeStyle='#111';ctx.lineWidth=5;ctx.lineJoin='round';
+    ctx.fillStyle=`rgba(0,0,0,${0.17-air*0.07})`;
     ctx.beginPath();
-    ctx.moveTo(x-20,y+12);
-    ctx.quadraticCurveTo(x-22,y-5,x-12,y-15);
-    ctx.quadraticCurveTo(x-4,y-23,x+3,y-17);
-    ctx.quadraticCurveTo(x+12,y-20,x+18,y-9);
-    ctx.quadraticCurveTo(x+24,y+1,x+20,y+12);
-    ctx.quadraticCurveTo(x+12,y+21,x,y+19);
-    ctx.quadraticCurveTo(x-13,y+22,x-20,y+12);
-    ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.ellipse(x,y+18,18-air*3.5,5.8-air*1.2,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
 
-    // 白目は使わず、黒目と小さな光沢だけ。向きは4方向。
-    const eyeY=y-5;
-    ctx.fillStyle='#111';
+    // 空中では縦に伸び、着地時は横にぷにっと潰れる。
+    let scaleX=1-air*.07+landing*.13;
+    let scaleY=1+air*.10-landing*.11;
+    if(slime.state==='idle' && landing<=0){
+      scaleX+=Math.sin(slime.wobble*2)*.008;
+      scaleY-=Math.sin(slime.wobble*2)*.008;
+    }
+
+    ctx.save();
+    ctx.translate(x,bodyY);
+    ctx.scale(scaleX,scaleY);
+
+    // 凹凸のない、丸くて下側が少し広い水色スライム。
+    ctx.fillStyle='#72d9f4';
+    ctx.strokeStyle='#111';
+    ctx.lineWidth=5;
+    ctx.lineJoin='round';
+    ctx.beginPath();
+    ctx.moveTo(-21,11);
+    ctx.bezierCurveTo(-22,-4,-15,-18,0,-20);
+    ctx.bezierCurveTo(15,-18,22,-4,21,11);
+    ctx.bezierCurveTo(16,20,7,22,0,21);
+    ctx.bezierCurveTo(-8,22,-17,20,-21,11);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 透明感のある光沢。画像ではなくCanvas図形。
+    ctx.fillStyle='rgba(255,255,255,.78)';
+    ctx.beginPath();
+    ctx.ellipse(-8,-11,5.3,3.1,-.55,0,Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.55)';
+    ctx.beginPath();
+    ctx.arc(-2,-15,1.5,0,Math.PI*2);
+    ctx.fill();
+
+    // 白目は使わず、黒目＋ごく小さな光だけ。4方向の向きを表現。
     if(slime.facing==='up'){
-      // 後ろ向きは顔を見せず、小さな艶だけ。
-      ctx.fillStyle='rgba(255,255,255,.7)';
-      ctx.beginPath();ctx.ellipse(x-6,y-12,4,2.2,-.5,0,Math.PI*2);ctx.fill();
+      // 上向きは後ろ姿。顔は描かず、背中の艶だけ見せる。
+      ctx.fillStyle='rgba(255,255,255,.34)';
+      ctx.beginPath();ctx.ellipse(7,-7,3.2,1.7,.45,0,Math.PI*2);ctx.fill();
     }else{
-      let eyes=[];
-      if(slime.facing==='left') eyes=[[x-10,eyeY],[x-2,eyeY-1]];
-      else if(slime.facing==='right') eyes=[[x+2,eyeY-1],[x+10,eyeY]];
-      else eyes=[[x-7,eyeY],[x+7,eyeY]];
+      let eyes;
+      if(slime.facing==='left') eyes=[[-11,-5],[-3,-6]];
+      else if(slime.facing==='right') eyes=[[3,-6],[11,-5]];
+      else eyes=[[-7,-5],[7,-5]];
       for(const [ex,ey] of eyes){
-        ctx.fillStyle='#111';ctx.beginPath();ctx.arc(ex,ey,4.1,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='white';ctx.beginPath();ctx.arc(ex-1.2,ey-1.4,1.15,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#111';
+        ctx.beginPath();ctx.arc(ex,ey,4.0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,.92)';
+        ctx.beginPath();ctx.arc(ex-1.15,ey-1.35,1.05,0,Math.PI*2);ctx.fill();
       }
-      ctx.strokeStyle='#111';ctx.lineWidth=2.5;ctx.lineCap='round';
-      ctx.beginPath();ctx.arc(x,y+5,5,0.15*Math.PI,.85*Math.PI);ctx.stroke();
+      ctx.strokeStyle='#111';
+      ctx.lineWidth=2.4;
+      ctx.lineCap='round';
+      ctx.beginPath();
+      if(slime.facing==='left') ctx.arc(-7,5,4.3,.12*Math.PI,.80*Math.PI);
+      else if(slime.facing==='right') ctx.arc(7,5,4.3,.20*Math.PI,.88*Math.PI);
+      else ctx.arc(0,5,5,.15*Math.PI,.85*Math.PI);
+      ctx.stroke();
     }
     ctx.restore();
   }
