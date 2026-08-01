@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.03</title>
+<title>SLIME KICK ZERO v0.04</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -38,11 +38,11 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.03　先行入力レール</div>
+      <div class="sub">v0.04　レール＋茂み描画</div>
       <div class="note">
         通路中央の見えないレールを走ります。<br>
         曲がりたい方向を少し早めに押すと、交差点まで進んで自然に曲がります。<br>
-        草は侵入できない固定ブロックです。
+        茂みは通れませんが、手前に来るとキャラの下半身を隠します。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -50,7 +50,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.03 先行入力テスト</span>
+      <span>v0.04 レール＋茂み</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
     <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
@@ -268,28 +268,45 @@
     ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
   }
 
-  function drawMap(){
-    ctx.fillStyle = '#d9c698'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  function drawGround(){
+    ctx.fillStyle = '#b9d987';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
     for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+      if(map[y][x]!==0) continue;
       const px=x*TILE, py=y*TILE;
-      if(map[y][x]===1){
-        ctx.fillStyle='#244d2b';
-        roundedRect(px+3,py+3,TILE-6,TILE-6,10);ctx.fill();
-        ctx.lineWidth=4;ctx.strokeStyle='#111';ctx.stroke();
-        ctx.strokeStyle='#69a94f';ctx.lineWidth=3;
-        for(let i=0;i<4;i++){
-          const gx=px+11+i*8;
-          ctx.beginPath();ctx.moveTo(gx,py+37);ctx.lineTo(gx-3,py+15+(i%2)*5);ctx.stroke();
-        }
-      }else{
-        ctx.fillStyle=(x+y)%2?'#e7d7ae':'#dfcca0';ctx.fillRect(px,py,TILE,TILE);
-        const exits=['up','down','left','right'].filter(dir=>canLeaveCell(x,y,dir)).length;
-        if(exits>=3){
-          ctx.fillStyle='rgba(255,246,196,.45)';
-          ctx.beginPath();ctx.arc(px+TILE/2,py+TILE/2,10,0,Math.PI*2);ctx.fill();
-        }
+      ctx.fillStyle=(x+y)%2?'#e7d7ae':'#dfcca0';
+      ctx.fillRect(px,py,TILE,TILE);
+      const exits=['up','down','left','right'].filter(dir=>canLeaveCell(x,y,dir)).length;
+      if(exits>=3){
+        ctx.fillStyle='rgba(255,248,210,.36)';
+        ctx.beginPath();ctx.arc(px+TILE/2,py+TILE/2,8,0,Math.PI*2);ctx.fill();
       }
     }
+  }
+
+  function drawBush(x,y){
+    const px=x*TILE, py=y*TILE;
+    const top=py-7;
+    const bottom=py+TILE-3;
+    ctx.save();
+    // 地面に接する濃い影。茂みが通路上へ浮いて見えないようにする。
+    ctx.fillStyle='rgba(0,0,0,.16)';
+    ctx.beginPath();ctx.ellipse(px+TILE/2,bottom-1,TILE*.42,7,0,0,Math.PI*2);ctx.fill();
+    // 丸い葉の塊。衝突判定は1マスだが、見た目は少し上へ張り出す。
+    ctx.fillStyle='#17652f';ctx.strokeStyle='#111';ctx.lineWidth=5;ctx.lineJoin='round';
+    roundedRect(px+3,top+8,TILE-6,TILE-9,12);ctx.fill();ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(px+13,top+14,10,0,Math.PI*2);
+    ctx.arc(px+25,top+9,12,0,Math.PI*2);
+    ctx.arc(px+37,top+15,10,0,Math.PI*2);
+    ctx.fill();ctx.stroke();
+    // 葉のハイライト
+    ctx.strokeStyle='#48b94f';ctx.lineWidth=3.2;ctx.lineCap='round';
+    for(let i=0;i<4;i++){
+      const gx=px+12+i*8;
+      ctx.beginPath();ctx.moveTo(gx,bottom-9);ctx.quadraticCurveTo(gx-3,py+19,gx+1,top+15+(i%2)*3);ctx.stroke();
+    }
+    ctx.restore();
   }
 
   function drawPlayer(){
@@ -320,8 +337,22 @@
 
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    drawMap();
-    drawPlayer();
+    drawGround();
+
+    // 見下ろし型の奥行き表現：足元のY座標で茂みと人を並べ替える。
+    // 人より下側の茂みは後から描き、下半身を自然に隠す。
+    const layers=[];
+    for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+      if(map[y][x]===1){
+        layers.push({depth:(y+1)*TILE,kind:'bush',x,y});
+      }
+    }
+    layers.push({depth:player.y+19,kind:'player'});
+    layers.sort((a,b)=>a.depth-b.depth || (a.kind==='player'?-1:1));
+    for(const item of layers){
+      if(item.kind==='player') drawPlayer();
+      else drawBush(item.x,item.y);
+    }
   }
 
   function loop(now){
