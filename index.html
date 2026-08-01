@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.09</title>
+<title>SLIME KICK ZERO v0.10</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -48,7 +48,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.09　ゆっくり水鉄砲</div>
+      <div class="sub">v0.10　ゆっくり水鉄砲</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
@@ -62,7 +62,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.09 ゆっくり水鉄砲</span>
+      <span>v0.10 ゆっくり水鉄砲</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
     <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
@@ -486,15 +486,22 @@
     if(player.facing==='left')ex=-3;if(player.facing==='right')ex=3;if(player.facing==='up')ey=-2;if(player.facing==='down')ey=2;
     ctx.fillStyle='#111';
     ctx.beginPath();ctx.arc(x-6+ex,y-19+ey,2.8,0,Math.PI*2);ctx.arc(x+6+ex,y-19+ey,2.8,0,Math.PI*2);ctx.fill();
-    // 小さな水鉄砲。向きだけで持ち替えるCanvas描画。
-    const gd=DIRS[player.facing]||DIRS.down;
+    // 水鉄砲は身体の横で構える。上下向きでも顔や胴体を貫かない。
     ctx.save();
-    ctx.translate(x+gd.x*22,y+8+gd.y*15);
-    const angle={right:0,down:Math.PI/2,left:Math.PI,up:-Math.PI/2}[player.facing]||0;
+    let gunX=x, gunY=y, angle=0;
+    if(player.facing==='right'){ gunX=x+20; gunY=y+9; angle=0; }
+    else if(player.facing==='left'){ gunX=x-20; gunY=y+9; angle=Math.PI; }
+    else if(player.facing==='down'){ gunX=x+15; gunY=y+13; angle=Math.PI/2; }
+    else { gunX=x+15; gunY=y-7; angle=-Math.PI/2; }
+    ctx.translate(gunX,gunY);
     ctx.rotate(angle);
-    ctx.fillStyle='#43c8f0';ctx.strokeStyle='#111';ctx.lineWidth=4;
-    roundedRect(-7,-7,23,14,5);ctx.fill();ctx.stroke();
-    ctx.fillStyle='#197ca3';ctx.fillRect(13,-3,10,6);ctx.strokeRect(13,-3,10,6);
+    ctx.fillStyle='#43c8f0';ctx.strokeStyle='#111';ctx.lineWidth=4;ctx.lineJoin='round';
+    roundedRect(-8,-7,22,14,5);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#197ca3';
+    roundedRect(12,-3,10,6,2);ctx.fill();ctx.stroke();
+    // 小さな持ち手。身体側へ付け、銃だけが浮いて見えないようにする。
+    ctx.fillStyle='#2a91b8';
+    roundedRect(-3,5,7,10,2);ctx.fill();ctx.stroke();
     ctx.restore();
     ctx.restore();
   }
@@ -541,6 +548,22 @@
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+
+    // 地面に接している部分だけ少し濃くし、透明なゼリー感を出す。
+    // ジャンプで浮くほど薄くなり、空中ではほぼ見えなくなる。
+    const baseAlpha=Math.max(0,.30-air*.34);
+    if(baseAlpha>0.01){
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(-18,10);
+      ctx.bezierCurveTo(-13,17,-6,19,0,19);
+      ctx.bezierCurveTo(7,19,14,17,18,10);
+      ctx.bezierCurveTo(10,13,-10,13,-18,10);
+      ctx.closePath();
+      ctx.fillStyle=`rgba(24,139,201,${baseAlpha})`;
+      ctx.fill();
+      ctx.restore();
+    }
 
     // 透明感のある光沢。画像ではなくCanvas図形。
     ctx.fillStyle='rgba(255,255,255,.78)';
