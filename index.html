@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.14</title>
+<title>SLIME KICK ZERO v0.15</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -48,7 +48,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.14　上向き水鉄砲調整</div>
+      <div class="sub">v0.15　上向き水鉄砲の持ち方調整</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
@@ -62,7 +62,7 @@
 
   <section id="game" class="screen">
     <div id="topbar">
-      <span>v0.14 上向き水鉄砲調整</span>
+      <span>v0.15 上向き水鉄砲調整</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
     <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
@@ -305,7 +305,7 @@
       right:{x:30,y:6},
       left:{x:-30,y:6},
       down:{x:11,y:27},
-      up:{x:19,y:-28}
+      up:{x:19,y:-29}
     }[dir];
     waterShots.push({
       x:player.x+muzzle.x,
@@ -486,7 +486,7 @@
       ctx.translate(gunX,gunY);
       ctx.rotate(Math.PI/2);
     }else{
-      gunX=x+15;gunY=y-7;
+      gunX=x+19;gunY=y-4;
       ctx.translate(gunX,gunY);
       ctx.rotate(-Math.PI/2);
     }
@@ -511,18 +511,21 @@
     // shadow
     ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(x,y+18,17,7,0,0,Math.PI*2);ctx.fill();
 
-    // 上向き専用：水鉄砲を背中側の右肩に背負うように描く。
-    // 本体は頭と胴体の後ろに隠し、右側だけ少し見せる。
+    // 上向き専用。腕を先に描き、その上へ水鉄砲を重ねる。
+    // これで腕が銃の表面に乗らず、肩の後ろで握って見える。
     if(player.facing==='up'){
-      ctx.save();
-      ctx.fillStyle='#43c8f0';
       ctx.strokeStyle='#111';
-      ctx.lineWidth=4;
+      ctx.lineWidth=7;
+      ctx.lineCap='round';
       ctx.lineJoin='round';
-      roundedRect(x+12,y-14,13,24,5);ctx.fill();ctx.stroke();
-      ctx.fillStyle='#197ca3';
-      roundedRect(x+16,y-21,6,10,2);ctx.fill();ctx.stroke();
-      ctx.restore();
+      ctx.beginPath();
+      ctx.moveTo(x+10,y+6);   // 右肩
+      ctx.lineTo(x+16,y+2);   // 曲げた肘
+      ctx.lineTo(x+18,y-2);   // 銃の内側へ入る手元
+      ctx.stroke();
+
+      // 水鉄砲を腕より手前、頭と胴体より後ろに描く。
+      drawGunAt(x,y,'up');
     }
     // body
     ctx.fillStyle='#5aa8ff';ctx.strokeStyle='#111';ctx.lineWidth=5;
@@ -530,24 +533,16 @@
     // legs
     ctx.lineCap='round';ctx.lineWidth=6;
     ctx.beginPath();ctx.moveTo(x-7,y+23);ctx.lineTo(x-9,y+34);ctx.moveTo(x+7,y+23);ctx.lineTo(x+9,y+34);ctx.stroke();
-    // arms：下向きと上向きだけ、銃を握って見えるように曲げる。
+    // arms：下向きだけ右腕を曲げて銃を握らせる。
     ctx.beginPath();
     ctx.moveTo(x-12,y+4);ctx.lineTo(x-22,y+14);
     if(player.facing==='down'){
       ctx.moveTo(x+12,y+4);ctx.lineTo(x+19,y+9);ctx.lineTo(x+14,y+14);
-    }else if(player.facing==='up'){
-      // 右肩→肘→水鉄砲の握り位置。胴体の手前に描いて接続を明確にする。
-      ctx.moveTo(x+11,y+4);ctx.lineTo(x+19,y+1);ctx.lineTo(x+20,y-7);
-    }else{
+    }else if(player.facing!=='up'){
+      // 上向きの右腕は、水鉄砲の後ろへ専用描画済み。
       ctx.moveTo(x+12,y+4);ctx.lineTo(x+22,y+14);
     }
     ctx.stroke();
-
-    if(player.facing==='up'){
-      // 黒いミトン状の手を銃の側面へ重ねる。
-      ctx.fillStyle='#111';
-      ctx.beginPath();ctx.arc(x+20,y-7,4.2,0,Math.PI*2);ctx.fill();
-    }
     // head
     ctx.fillStyle='#ffd7b0';ctx.beginPath();ctx.arc(x,y-17,17,0,Math.PI*2);ctx.fill();ctx.stroke();
     // 上向きは後ろ姿なので目を描かない。
