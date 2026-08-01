@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.27</title>
+<title>SLIME KICK ZERO v0.28</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -773,26 +773,55 @@
 
   function drawBush(x,y){
     const px=x*TILE, py=y*TILE;
-    const top=py-7;
-    const bottom=py+TILE-3;
+    const cx=px+TILE/2;
+    const ground=py+TILE-5;
     ctx.save();
-    // 地面に接する濃い影。茂みが通路上へ浮いて見えないようにする。
-    ctx.fillStyle='rgba(0,0,0,.16)';
-    ctx.beginPath();ctx.ellipse(px+TILE/2,bottom-1,TILE*.42,7,0,0,Math.PI*2);ctx.fill();
-    // 丸い葉の塊。衝突判定は1マスだが、見た目は少し上へ張り出す。
-    ctx.fillStyle='#17652f';ctx.strokeStyle='#111';ctx.lineWidth=5;ctx.lineJoin='round';
-    roundedRect(px+3,top+8,TILE-6,TILE-9,12);ctx.fill();ctx.stroke();
+
+    // 地面に落ちる柔らかい影。
+    ctx.fillStyle='rgba(25,72,30,.18)';
     ctx.beginPath();
-    ctx.arc(px+13,top+14,10,0,Math.PI*2);
-    ctx.arc(px+25,top+9,12,0,Math.PI*2);
-    ctx.arc(px+37,top+15,10,0,Math.PI*2);
-    ctx.fill();ctx.stroke();
-    // 葉のハイライト
-    ctx.strokeStyle='#48b94f';ctx.lineWidth=3.2;ctx.lineCap='round';
-    for(let i=0;i<4;i++){
-      const gx=px+12+i*8;
-      ctx.beginPath();ctx.moveTo(gx,bottom-9);ctx.quadraticCurveTo(gx-3,py+19,gx+1,top+15+(i%2)*3);ctx.stroke();
+    ctx.ellipse(cx,ground+1,TILE*.36,5.5,0,0,Math.PI*2);
+    ctx.fill();
+
+    // 低い草むらの土台。箱ではなく、横に広がる葉の集まりにする。
+    ctx.fillStyle='#2f8f45';
+    ctx.strokeStyle='#174f2b';
+    ctx.lineWidth=3.5;
+    ctx.lineJoin='round';
+    ctx.beginPath();
+    ctx.moveTo(px+6,ground);
+    ctx.quadraticCurveTo(px+5,py+29,px+12,py+25);
+    ctx.quadraticCurveTo(px+12,py+16,px+19,py+24);
+    ctx.quadraticCurveTo(px+22,py+9,px+27,py+23);
+    ctx.quadraticCurveTo(px+34,py+14,px+34,py+25);
+    ctx.quadraticCurveTo(px+43,py+20,px+42,ground);
+    ctx.quadraticCurveTo(cx,ground+4,px+6,ground);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 前側の葉。短く斜めに重ね、誰が見ても草むらに見えるようにする。
+    const blades=[
+      [11,36,9,24],[17,38,18,20],[23,37,25,17],
+      [29,38,31,21],[35,36,39,24],[14,34,7,28],
+      [32,34,42,29]
+    ];
+    ctx.strokeStyle='#58c86a';
+    ctx.lineWidth=3.2;
+    ctx.lineCap='round';
+    for(const [x1,y1,x2,y2] of blades){
+      ctx.beginPath();
+      ctx.moveTo(px+x1,py+y1);
+      ctx.quadraticCurveTo(px+(x1+x2)/2-1,py+(y1+y2)/2,px+x2,py+y2);
+      ctx.stroke();
     }
+
+    // 奥側の葉に暗い筋を少し入れて密度を出す。
+    ctx.strokeStyle='rgba(20,91,42,.65)';
+    ctx.lineWidth=2.2;
+    ctx.beginPath();ctx.moveTo(px+10,py+34);ctx.lineTo(px+14,py+22);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(px+38,py+35);ctx.lineTo(px+35,py+23);ctx.stroke();
+
     ctx.restore();
   }
 
