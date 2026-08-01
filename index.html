@@ -512,7 +512,17 @@
     ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(x,y+18,17,7,0,0,Math.PI*2);ctx.fill();
 
     // 上向きでは水鉄砲を身体の後ろに描き、大部分を隠す。
-    if(player.facing==='up') drawGunAt(x,y,'up');
+    if(player.facing==='up'){
+      drawGunAt(x,y,'up');
+      // 後ろ姿の右腕を銃の位置まで曲げ、手で支えているように見せる。
+      // 胴体と頭を後から重ねるため、肩の付け根は自然に隠れる。
+      ctx.strokeStyle='#111';ctx.lineWidth=6;ctx.lineCap='round';ctx.lineJoin='round';
+      ctx.beginPath();
+      ctx.moveTo(x+10,y+3);
+      ctx.lineTo(x+17,y-2);
+      ctx.lineTo(x+17,y-8);
+      ctx.stroke();
+    }
 
     // body
     ctx.fillStyle='#5aa8ff';ctx.strokeStyle='#111';ctx.lineWidth=5;
