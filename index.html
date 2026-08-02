@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.43</title>
+<title>SLIME KICK ZERO v0.44</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -43,6 +43,13 @@
   .actionBtn:active{transform:translateY(4px)}
   #actionHint{font-size:12px}
   .kbd{display:inline-block;padding:2px 6px;border:2px solid #222;border-radius:6px;background:white;margin:0 2px}
+  .titleButtons{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  #custom{align-items:flex-start;justify-content:center;padding:18px;overflow-y:auto;background:linear-gradient(#8fd2ff,#e9f8ff 30%,#7dbd58 30%,#4f8b42)}
+  .customGrid{display:grid;grid-template-columns:1fr auto;gap:10px 14px;align-items:center;text-align:left;margin:14px 0}
+  .customGrid label{font-weight:900}
+  .customGrid select{font:inherit;font-weight:900;border:3px solid #222;border-radius:10px;background:#fff;padding:7px 10px;min-width:78px}
+  .customActions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .secondaryBtn{background:#fff;box-shadow:0 6px 0 #777}
   @media (max-height:620px){#controls{height:126px}#dpad{transform:scale(.86)}#topbar{height:46px}}
 </style>
 </head>
@@ -51,16 +58,41 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.43　オウムスライム</div>
+      <div class="sub">v0.44　カスタムモード</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。5点取るとステージクリアです。STAGE 3では紫色のジャンパースライム、STAGE 4では黄色のエコースライム、STAGE 5では緑のオウムスライム、STAGE 6では睡眠花粉を出す青紫の変異花が登場します。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。5点取るとステージクリアです。CUSTOMでは登場数とクリア得点を自由に設定できます。STAGE 3では紫色のジャンパースライム、STAGE 4では黄色のエコースライム、STAGE 5では緑のオウムスライム、STAGE 6では睡眠花粉を出す青紫の変異花が登場します。
       </div>
-      <button id="startBtn" type="button">試合開始</button>
+      <div class="titleButtons">
+        <button id="startBtn" type="button">STAGE</button>
+        <button id="customBtn" type="button">CUSTOM</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="custom" class="screen">
+    <div class="card">
+      <h1 style="font-size:34px">CUSTOM</h1>
+      <div class="sub">登場する生き物を自由に設定</div>
+      <div class="customGrid">
+        <label for="cfgNormal">通常スライム</label><select id="cfgNormal"></select>
+        <label for="cfgJumper">ジャンパー</label><select id="cfgJumper"></select>
+        <label for="cfgEcho">エコー</label><select id="cfgEcho"></select>
+        <label for="cfgParrot">オウム</label><select id="cfgParrot"></select>
+        <label for="cfgFlower">花</label><select id="cfgFlower"></select>
+        <label for="cfgSleepy">変異花</label><select id="cfgSleepy"></select>
+        <label for="cfgHive">蜂の巣</label><select id="cfgHive"></select>
+        <label for="cfgTarget">クリア得点</label><select id="cfgTarget"></select>
+      </div>
+      <div class="note" style="margin:8px 0 16px">蜂の巣は現在1個まで。何も出さない設定も可能です。</div>
+      <div class="customActions">
+        <button id="customStartBtn" type="button">開始</button>
+        <button id="customBackBtn" class="secondaryBtn" type="button">戻る</button>
+      </div>
     </div>
   </section>
 
@@ -92,6 +124,10 @@
   const title = document.getElementById('title');
   const game = document.getElementById('game');
   const startBtn = document.getElementById('startBtn');
+  const customBtn = document.getElementById('customBtn');
+  const customStartBtn = document.getElementById('customStartBtn');
+  const customBackBtn = document.getElementById('customBackBtn');
+  const customScreen = document.getElementById('custom');
   const backBtn = document.getElementById('backBtn');
   const stageDisplay = document.getElementById('stageDisplay');
   const scoreDisplay = document.getElementById('scoreDisplay');
@@ -199,6 +235,10 @@
   let last = performance.now();
   const STAGE_TARGET = 5;
   const MAX_STAGE = 7;
+  let customMode = false;
+  let customConfig = {normal:1,jumper:0,echo:0,parrot:0,flower:1,sleepy:0,hive:0,target:5};
+  const customFlowerRespawns=[];
+  function targetScore(){return customMode?customConfig.target:STAGE_TARGET;}
   let stage = 1;
   let scores = 0;
   let misses = 0;
@@ -238,6 +278,7 @@
   function setScreen(which){
     title.classList.toggle('active', which === 'title');
     game.classList.toggle('active', which === 'game');
+    customScreen.classList.toggle('active', which === 'custom');
   }
 
   function resetPlayer(){
@@ -266,9 +307,23 @@
     waterCooldown = 0;
     firecrackerCooldown = 0;
     flowers.length=0;
-    flowers.push(createGateFlower());
+    customFlowerRespawns.length=0;
     flowerRespawnTimer=0;
 
+    if(customMode){
+      for(let i=0;i<customConfig.normal;i++) slimes.push(createGateSlime(false,false,false));
+      for(let i=0;i<customConfig.jumper;i++) slimes.push(createGateSlime(true,false,false));
+      for(let i=0;i<customConfig.echo;i++) slimes.push(createGateSlime(false,true,false));
+      for(let i=0;i<customConfig.parrot;i++) slimes.push(createGateSlime(false,false,true));
+      for(let i=0;i<customConfig.flower;i++) flowers.push(createGateFlower(false));
+      for(let i=0;i<customConfig.sleepy;i++) flowers.push(createGateFlower(true));
+      slime=slimes[0]||createGateSlime(false,false,false);
+      secondSlimeTimer=Infinity;
+      hiveActive=customConfig.hive>0;
+      return;
+    }
+
+    flowers.push(createGateFlower());
     if(stage===1){
       slime=createSlime(cellCenterX(5),cellCenterY(4),'left',{forcedDir:'left',forcedHops:1,idleDuration:.18,spawnGrace:1.0,spawnEffect:.7});
       slimes.push(slime);
@@ -535,15 +590,16 @@
     const i=flowers.indexOf(target);if(i>=0) flowers.splice(i,1);
     if(checkStageClear()) return;
     scoreMessageTimer=.95;
-    flowerRespawnTimer=2.4;
+    if(customMode) customFlowerRespawns.push({time:2.4,sleepy:!!target.sleepy});
+    else flowerRespawnTimer=2.4;
   }
 
   function updateStageDisplay(){
-    stageDisplay.textContent='STAGE '+stage;
+    stageDisplay.textContent=customMode?'CUSTOM':'STAGE '+stage;
   }
 
   function updateScoreDisplay(){
-    scoreDisplay.textContent='得点 '+scores+'/'+STAGE_TARGET;
+    scoreDisplay.textContent='得点 '+scores+'/'+targetScore();
   }
 
   function freezeControls(){
@@ -557,7 +613,12 @@
   }
 
   function checkStageClear(){
-    if(scores<STAGE_TARGET || roundState!=='play') return false;
+    if(scores<targetScore() || roundState!=='play') return false;
+    if(customMode){
+      roundState='allClear';
+      freezeControls();
+      return true;
+    }
     stageMissRecords[stage-1]=misses-stageStartMisses;
     roundState='stageClear';
     roundTimer=2.0;
@@ -1069,6 +1130,13 @@
     }
     secondSlimeTimer-=dt;
     if(secondSlimeTimer<=0 && slimes.length+scoreRespawnTimers.length<2) spawnSecondSlime();
+    for(let i=customFlowerRespawns.length-1;i>=0;i--){
+      customFlowerRespawns[i].time-=dt;
+      if(customFlowerRespawns[i].time<=0){
+        const entry=customFlowerRespawns.splice(i,1)[0];
+        flowers.push(createGateFlower(entry.sleepy));
+      }
+    }
     if(flowerRespawnTimer>0){
       flowerRespawnTimer-=dt;
       if(flowerRespawnTimer<=0 && flowers.length===0) flowers.push(createGateFlower(stage>=6));
@@ -1081,7 +1149,8 @@
       // 花が相手村へ入っても失点にはしない。少し後にゲートから戻る。
       if(flowers.includes(target) && target.state!=='flying' && slimeReachedAnyCell(target,ENEMY_VILLAGE_CELLS)){
         const i=flowers.indexOf(target);if(i>=0) flowers.splice(i,1);
-        flowerRespawnTimer=2.4;
+        if(customMode) customFlowerRespawns.push({time:2.4,sleepy:!!target.sleepy});
+        else flowerRespawnTimer=2.4;
       }
     }
     for(const target of [...slimes]){
@@ -1765,11 +1834,11 @@
       ctx.fillStyle='#111';ctx.textAlign='center';ctx.textBaseline='middle';
       const finalClear=stage>=MAX_STAGE;
       ctx.font='900 30px system-ui,sans-serif';
-      ctx.fillText(finalClear?'ALL CLEAR!':'STAGE CLEAR!',canvas.width/2,canvas.height/2-24);
+      ctx.fillText(customMode?'CUSTOM CLEAR!':(finalClear?'ALL CLEAR!':'STAGE CLEAR!'),canvas.width/2,canvas.height/2-24);
       ctx.font='900 18px system-ui,sans-serif';
       const stageMiss=stageMissRecords[stage-1] ?? (misses-stageStartMisses);
       if(roundState==='stageClear' && !finalClear) ctx.fillText('このステージの失点 '+stageMiss+'　次は STAGE '+(stage+1),canvas.width/2,canvas.height/2+21);
-      else ctx.fillText('合計失点 '+misses+'　戻るでタイトルへ',canvas.width/2,canvas.height/2+21);
+      else ctx.fillText((customMode?'失点 ':'合計失点 ')+misses+'　戻るでタイトルへ',canvas.width/2,canvas.height/2+21);
       ctx.restore();
     }
   }
@@ -1780,14 +1849,30 @@
     update(dt);draw();requestAnimationFrame(loop);
   }
 
-  function start(){
+  function startGame(isCustom=false){
+    customMode=isCustom;
     stage=1;scores=0;misses=0;stageStartMisses=0;stageMissRecords.length=0;lossAmount=1;roundState='play';roundTimer=0;lossReason='village';scoreMessageTimer=0;scoreRespawnTimers.length=0;
     updateStageDisplay();updateScoreDisplay();updateMissDisplay();
     resetPlayer();resetSlime();setScreen('game');running=true;last=performance.now();draw();requestAnimationFrame(loop);
   }
+  function start(){startGame(false);}
   function stop(){running=false;Object.keys(keys).forEach(k=>keys[k]=false);setScreen('title');}
 
+  function fillSelect(id,values,selected){
+    const el=document.getElementById(id);el.innerHTML='';
+    for(const value of values){const option=document.createElement('option');option.value=value;option.textContent=value;option.selected=value===selected;el.appendChild(option);}
+  }
+  for(const [id,key,max] of [['cfgNormal','normal',4],['cfgJumper','jumper',4],['cfgEcho','echo',4],['cfgParrot','parrot',4],['cfgFlower','flower',3],['cfgSleepy','sleepy',3]]) fillSelect(id,Array.from({length:max+1},(_,i)=>i),customConfig[key]);
+  fillSelect('cfgHive',[0,1],customConfig.hive);
+  fillSelect('cfgTarget',[5,10,20],customConfig.target);
+  function readCustomConfig(){
+    for(const key of ['normal','jumper','echo','parrot','flower','sleepy','hive','target']) customConfig[key]=Number(document.getElementById('cfg'+key[0].toUpperCase()+key.slice(1)).value);
+  }
+
   startBtn.addEventListener('click',start);
+  customBtn.addEventListener('click',()=>setScreen('custom'));
+  customBackBtn.addEventListener('click',()=>setScreen('title'));
+  customStartBtn.addEventListener('click',()=>{readCustomConfig();startGame(true);});
   backBtn.addEventListener('click',stop);
 
   const keyMap={ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down',ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right'};
