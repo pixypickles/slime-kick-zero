@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.41</title>
+<title>SLIME KICK ZERO v0.42</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -51,14 +51,14 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.41　オウムスライム</div>
+      <div class="sub">v0.42　オウムスライム</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。5点取るとステージクリアです。STAGE 3では紫色のジャンパースライム、STAGE 4では水を受けると「パン！」と音を返す黄色のエコースライムが登場します。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。5点取るとステージクリアです。STAGE 3では紫色のジャンパースライム、STAGE 4では黄色のエコースライム、STAGE 5では緑のオウムスライム、STAGE 6では睡眠花粉を出す青紫の変異花が登場します。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -137,7 +137,8 @@
     moveDir: null,
     queuedDir: null,
     turnTarget: null,
-    lastMoveDir: 'right'
+    lastMoveDir: 'right',
+    sleepTime: 0
   };
 
   function createSlime(x=TILE*11.5,y=TILE*7.5,facing='left',options={}){
@@ -148,7 +149,7 @@
       landingPulse:0,forcedDir:options.forcedDir ?? null,forcedHops:options.forcedHops ?? 0,wetFlash:0,
       alertState:'none',alertTime:0,alertDuration:0.8,
       spawnGrace:options.spawnGrace ?? 0,spawnEffect:options.spawnEffect ?? 0,
-      mutant:!!options.mutant,echo:!!options.echo,parrot:!!options.parrot,jumperLeap:false,echoPulse:0,parrotTimer:0,parrotCooldown:0
+      mutant:!!options.mutant,echo:!!options.echo,parrot:!!options.parrot,jumperLeap:false,echoPulse:0,parrotTimer:0,parrotCooldown:0,sleepTime:0
     };
   }
   function chooseSpawnExit(){
@@ -179,6 +180,7 @@
   const waterShots = [];
   const firecrackers = [];
   const soundRings = [];
+  const pollenClouds = [];
   let waterCooldown = 0;
   let firecrackerCooldown = 0;
 
@@ -190,7 +192,7 @@
   let running = false;
   let last = performance.now();
   const STAGE_TARGET = 5;
-  const MAX_STAGE = 5;
+  const MAX_STAGE = 6;
   let stage = 1;
   let scores = 0;
   let misses = 0;
@@ -210,14 +212,15 @@
       forcedDir:options.forcedDir ?? null,forcedHops:options.forcedHops ?? 0,
       alertState:'none',alertTime:0,alertDuration:.8,escapeTime:0,escapeDuration:.75,
       spawnGrace:options.spawnGrace ?? 1.0,spawnEffect:options.spawnEffect ?? .7,
-      flyingTime:0,wetFlash:0,soundReact:0
+      flyingTime:0,wetFlash:0,soundReact:0,
+      sleepy:!!options.sleepy,pollenCooldown:0,pollenPulse:0
     };
   }
 
-  function createGateFlower(){
+  function createGateFlower(sleepy=false){
     const exit=chooseSpawnExit();
     return createFlower(cellCenterX(exit.x),cellCenterY(exit.y),exit.dir,{
-      forcedDir:exit.dir,forcedHops:1,idleDuration:.22,spawnGrace:1.2,spawnEffect:.7
+      forcedDir:exit.dir,forcedHops:1,idleDuration:.22,spawnGrace:1.2,spawnEffect:.7,sleepy
     });
   }
 
@@ -236,6 +239,7 @@
     player.queuedDir = null;
     player.turnTarget = null;
     player.lastMoveDir = 'right';
+    player.sleepTime = 0;
     pressOrder.length = 0;
   }
 
@@ -246,6 +250,7 @@
     waterShots.length = 0;
     firecrackers.length = 0;
     soundRings.length = 0;
+    pollenClouds.length = 0;
     waterCooldown = 0;
     firecrackerCooldown = 0;
     flowers.length=0;
@@ -275,12 +280,22 @@
       slimes.push(createGateSlime(false,true,false));
       slime=slimes[0];
       secondSlimeTimer=Infinity;
-    }else{
+    }else if(stage===5){
       // STAGE 5は通常・ジャンパー・エコー・オウムを1匹ずつ。
       slimes.push(createGateSlime(false,false,false));
       slimes.push(createGateSlime(true,false,false));
       slimes.push(createGateSlime(false,true,false));
       slimes.push(createGateSlime(false,false,true));
+      slime=slimes[0];
+      secondSlimeTimer=Infinity;
+    }else{
+      // STAGE 6は4種類のスライム＋睡眠花粉を出す変異花。
+      slimes.push(createGateSlime(false,false,false));
+      slimes.push(createGateSlime(true,false,false));
+      slimes.push(createGateSlime(false,true,false));
+      slimes.push(createGateSlime(false,false,true));
+      flowers.length=0;
+      flowers.push(createGateFlower(true));
       slime=slimes[0];
       secondSlimeTimer=Infinity;
     }
@@ -438,6 +453,8 @@
     target.spawnEffect=Math.max(0,target.spawnEffect-dt);
     target.wetFlash=Math.max(0,target.wetFlash-dt*2.6);
     target.soundReact=Math.max(0,(target.soundReact||0)-dt);
+    target.pollenCooldown=Math.max(0,(target.pollenCooldown||0)-dt);
+    target.pollenPulse=Math.max(0,(target.pollenPulse||0)-dt);
     target.floatTime+=dt*2.3;target.stateTime+=dt;
 
     if(target.state==='flying'){
@@ -615,7 +632,7 @@
   }
 
   function updateDetection(dt){
-    if(roundState!=='play') return;
+    if(roundState!=='play' || slime.sleepTime>0) return;
     const visible=slimeCanSeePlayer();
     if(visible){
       if(slime.alertState==='none'){
@@ -674,6 +691,11 @@
 
   function updateSlime(dt){
     slime.spawnGrace=Math.max(0,(slime.spawnGrace||0)-dt);
+    slime.sleepTime=Math.max(0,(slime.sleepTime||0)-dt);
+    if(slime.sleepTime>0){
+      slime.state='idle';slime.stateTime=0;slime.alertState='none';slime.alertTime=0;
+      return;
+    }
     slime.spawnEffect=Math.max(0,(slime.spawnEffect||0)-dt);
     slime.wobble += dt * (slime.state==='idle' ? 2.2 : 5.5);
     slime.landingPulse=Math.max(0,slime.landingPulse-dt*4.5);
@@ -722,7 +744,7 @@
   }
 
   function fireWater(){
-    if(!running || roundState!=='play' || waterCooldown>0) return;
+    if(!running || roundState!=='play' || waterCooldown>0 || player.sleepTime>0) return;
     const dir=player.facing || 'down';
     const d=DIRS[dir];
     // 描画した銃口の位置に合わせて、水弾の開始位置も4方向別にする。
@@ -784,6 +806,33 @@
     return true;
   }
 
+  function releaseSleepPollen(target,kind='water'){
+    if(!target.sleepy || target.pollenCooldown>0 || target.state==='flying') return;
+    const radius=kind==='noise' ? TILE*2.25 : TILE*1.45;
+    const sleepDuration=kind==='noise' ? 3.0 : 2.0;
+    target.pollenCooldown=5.0;
+    target.pollenPulse=.9;
+    pollenClouds.push({x:target.x,y:target.y,radius,life:1.15,maxLife:1.15,kind});
+    if(Math.hypot(player.x-target.x,player.y-target.y)<=radius){
+      player.sleepTime=Math.max(player.sleepTime,sleepDuration);
+      player.moveDir=null;player.turnTarget=null;
+      Object.keys(keys).forEach(k=>keys[k]=false);
+    }
+    for(const other of slimes){
+      if(Math.hypot(other.x-target.x,other.y-target.y)<=radius){
+        other.sleepTime=Math.max(other.sleepTime,sleepDuration);
+        other.alertState='none';other.alertTime=0;other.forcedHops=0;
+      }
+    }
+  }
+
+  function updatePollen(dt){
+    for(let i=pollenClouds.length-1;i>=0;i--){
+      pollenClouds[i].life-=dt;
+      if(pollenClouds[i].life<=0) pollenClouds.splice(i,1);
+    }
+  }
+
   function updateWater(dt){
     waterCooldown=Math.max(0,waterCooldown-dt);
     for(let i=waterShots.length-1;i>=0;i--){
@@ -809,6 +858,7 @@
         const hitX=shot.x+segX*t,hitY=shot.y+segY*t;
         const dx=target.x-hitX,dy=target.y-hitY;
         if(dx*dx+dy*dy<23*23){
+          releaseSleepPollen(target,'water');
           target.facing=shot.dir;target.forcedDir=shot.dir;target.forcedHops=3;target.wetFlash=1;
           target.alertState='none';target.alertTime=0;target.escapeTime=0;
           if(target.state==='idle'){target.stateTime=0;target.idleDuration=.12;}
@@ -849,7 +899,7 @@
   }
 
   function placeFirecracker(){
-    if(!running || roundState!=='play' || firecrackerCooldown>0) return;
+    if(!running || roundState!=='play' || firecrackerCooldown>0 || player.sleepTime>0) return;
     const c=cellFromPosition(player.x,player.y);
     firecrackers.push({
       x:cellCenterX(c.x), y:cellCenterY(c.y), timer:1.0, phase:0
@@ -882,6 +932,7 @@
     }
     for(const target of flowers){
       if(target.state==='flying') continue;
+      releaseSleepPollen(target,'noise');
       const cell=cellFromPosition(target.x,target.y);
       const open=availableDirections(cell.x,cell.y);
       if(!open.length) continue;
@@ -946,7 +997,7 @@
     if(secondSlimeTimer<=0 && slimes.length+scoreRespawnTimers.length<2) spawnSecondSlime();
     if(flowerRespawnTimer>0){
       flowerRespawnTimer-=dt;
-      if(flowerRespawnTimer<=0 && flowers.length===0) flowers.push(createGateFlower());
+      if(flowerRespawnTimer<=0 && flowers.length===0) flowers.push(createGateFlower(stage>=6));
     }
     for(const target of [...flowers]){
       updateFlower(target,dt);
@@ -979,6 +1030,9 @@
     }
     updateWater(dt);
     updateFirecrackers(dt);
+    updatePollen(dt);
+    player.sleepTime=Math.max(0,(player.sleepTime||0)-dt);
+    if(player.sleepTime>0){player.moveDir=null;player.turnTarget=null;return;}
     const desired=newestHeldDirection();
     if(desired){
       player.facing=desired;
@@ -1266,6 +1320,10 @@
 
     // 上向き以外は身体の手前に水鉄砲を描く。
     if(player.facing!=='up') drawGunAt(x,y,player.facing);
+    if(player.sleepTime>0){
+      ctx.fillStyle='#243a91';ctx.font='900 18px system-ui';ctx.textAlign='center';
+      ctx.fillText('Z',x+19,y-37);ctx.font='900 13px system-ui';ctx.fillText('Z',x+29,y-48);
+    }
     ctx.restore();
   }
 
@@ -1356,8 +1414,11 @@
       ctx.beginPath();ctx.arc(9,-11,2.2,0,Math.PI*2);ctx.fill();
     }
 
-    // 白目は使わず、黒目＋ごく小さな光だけ。4方向の向きを表現。
-    if(slime.facing==='up'){
+    // 睡眠中は目を閉じ、Zを表示する。
+    if(slime.sleepTime>0){
+      ctx.strokeStyle='#111';ctx.lineWidth=2.4;ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(-11,-5);ctx.lineTo(-4,-4);ctx.moveTo(4,-4);ctx.lineTo(11,-5);ctx.stroke();
+    }else if(slime.facing==='up'){
       // 上向きは後ろ姿。顔は描かず、背中の艶だけ見せる。
       ctx.fillStyle='rgba(255,255,255,.34)';
       ctx.beginPath();ctx.ellipse(7,-7,3.2,1.7,.45,0,Math.PI*2);ctx.fill();
@@ -1382,6 +1443,10 @@
       ctx.stroke();
     }
     ctx.restore();
+    if(slime.sleepTime>0){
+      ctx.save();ctx.fillStyle='#243a91';ctx.font='900 17px system-ui';ctx.textAlign='center';
+      ctx.fillText('Z',x+19,bodyY-31);ctx.font='900 12px system-ui';ctx.fillText('Z',x+29,bodyY-42);ctx.restore();
+    }
 
     // ゲートから生まれた直後の、短いぷるんとした出現演出。
     if(slime.spawnEffect>0){
@@ -1441,10 +1506,10 @@
 
     // 花びら（左右対称）
     const petals=[[0,-13],[-10,-7],[10,-7],[-8,4],[8,4]];
-    ctx.fillStyle='#ff91bf';ctx.strokeStyle='#371f31';ctx.lineWidth=3.5;
+    ctx.fillStyle=target.sleepy?'#8d86ef':'#ff91bf';ctx.strokeStyle=target.sleepy?'#28235e':'#371f31';ctx.lineWidth=3.5;
     for(const [px,py] of petals){ctx.beginPath();ctx.ellipse(px,py,8,10,0,0,Math.PI*2);ctx.fill();ctx.stroke();}
     // 顔の中心
-    ctx.fillStyle=target.wetFlash>0?'#fff7a8':'#ffd95c';
+    ctx.fillStyle=target.wetFlash>0?'#fff7a8':(target.sleepy?'#b9f1ff':'#ffd95c');
     ctx.beginPath();ctx.arc(0,-2,11,0,Math.PI*2);ctx.fill();ctx.stroke();
     ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-4,-3,1.9,0,Math.PI*2);ctx.arc(4,-3,1.9,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#111';ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(0,1,4,.15*Math.PI,.85*Math.PI);ctx.stroke();
@@ -1457,6 +1522,15 @@
       ctx.beginPath();ctx.arc(0,0,11+Math.sin(pulse*Math.PI)*2,0,Math.PI*2);ctx.fill();ctx.stroke();
       ctx.fillStyle='#ef3e34';ctx.font='900 18px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!',0,1);
       ctx.restore();
+    }
+
+    if(target.pollenPulse>0){
+      const pulse=target.pollenPulse/.9;ctx.save();ctx.globalAlpha=Math.min(1,pulse*1.4);
+      ctx.strokeStyle='#b992e8';ctx.lineWidth=3;ctx.setLineDash([4,5]);
+      ctx.beginPath();ctx.arc(0,-2,22+(1-pulse)*18,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+    }
+    if(target.sleepy){
+      ctx.fillStyle='#5b4b9b';ctx.font='900 12px system-ui';ctx.textAlign='center';ctx.fillText('Zz',0,22);
     }
 
     if(target.alertState==='warning' || target.alertState==='found'){
@@ -1552,6 +1626,13 @@
       }else drawBush(item.x,item.y);
     }
     for(const ring of soundRings){const t=1-ring.life/ring.maxLife;ctx.save();ctx.strokeStyle=`rgba(255,120,55,${1-t})`;ctx.lineWidth=5*(1-t)+1;ctx.beginPath();ctx.arc(ring.x,ring.y,12+t*70,0,Math.PI*2);ctx.stroke();ctx.fillStyle=`rgba(255,255,255,${1-t})`;ctx.font='900 20px system-ui';ctx.textAlign='center';ctx.fillText('パン！',ring.x,ring.y-18-t*10);ctx.restore();}
+    for(const cloud of pollenClouds){
+      const t=1-cloud.life/cloud.maxLife;ctx.save();
+      ctx.fillStyle=`rgba(190,145,225,${.22*(1-t)})`;ctx.strokeStyle=`rgba(112,74,160,${.7*(1-t)})`;ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(cloud.x,cloud.y,12+t*(cloud.radius-12),0,Math.PI*2);ctx.fill();ctx.stroke();
+      for(let i=0;i<10;i++){const a=i*Math.PI*2/10+t*1.5;const r=10+t*(cloud.radius*.72);ctx.fillStyle=`rgba(245,220,255,${.75*(1-t)})`;ctx.beginPath();ctx.arc(cloud.x+Math.cos(a)*r,cloud.y+Math.sin(a)*r,2.3,0,Math.PI*2);ctx.fill();}
+      ctx.restore();
+    }
     if(roundState==='lost'){
       ctx.save();
       ctx.fillStyle='rgba(255,255,255,.90)';
