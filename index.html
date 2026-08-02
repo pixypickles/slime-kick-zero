@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.36</title>
+<title>SLIME KICK ZERO v0.40</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -51,14 +51,14 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.36　ステージ制</div>
+      <div class="sub">v0.40　エコースライム</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。5点取るとステージクリアです。STAGE 3では、水を受けると隣のレーンへ大ジャンプする紫色のジャンパースライムが登場します。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。5点取るとステージクリアです。STAGE 3では紫色のジャンパースライム、STAGE 4では水を受けると「パン！」と音を返す黄色のエコースライムが登場します。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -148,7 +148,7 @@
       landingPulse:0,forcedDir:options.forcedDir ?? null,forcedHops:options.forcedHops ?? 0,wetFlash:0,
       alertState:'none',alertTime:0,alertDuration:0.8,
       spawnGrace:options.spawnGrace ?? 0,spawnEffect:options.spawnEffect ?? 0,
-      mutant:!!options.mutant,jumperLeap:false
+      mutant:!!options.mutant,echo:!!options.echo,jumperLeap:false,echoPulse:0
     };
   }
   function chooseSpawnExit(){
@@ -163,12 +163,12 @@
     }
     return best||{x:5,y:4,dir:'left'};
   }
-  function createGateSlime(mutant=false){
+  function createGateSlime(mutant=false,echo=false){
     const exit=chooseSpawnExit();
     return createSlime(cellCenterX(exit.x),cellCenterY(exit.y),exit.dir,{
       forcedDir:exit.dir,forcedHops:1,
       idleDuration:mutant ? .12 : .18,
-      spawnGrace:1.2,spawnEffect:.7,mutant
+      spawnGrace:1.2,spawnEffect:.7,mutant,echo
     });
   }
   let slime=createSlime(cellCenterX(5),cellCenterY(4),'left',{forcedDir:'left',forcedHops:1,idleDuration:.18,spawnGrace:1.0,spawnEffect:.7});
@@ -190,7 +190,7 @@
   let running = false;
   let last = performance.now();
   const STAGE_TARGET = 5;
-  const MAX_STAGE = 3;
+  const MAX_STAGE = 4;
   let stage = 1;
   let scores = 0;
   let misses = 0;
@@ -262,10 +262,17 @@
       slimes.push(createGateSlime(false));
       slime=slimes[0];
       secondSlimeTimer=Infinity;
-    }else{
+    }else if(stage===3){
       // STAGE 3は通常スライム1匹＋ジャンパースライム1匹。
-      slimes.push(createGateSlime(false));
-      slimes.push(createGateSlime(true));
+      slimes.push(createGateSlime(false,false));
+      slimes.push(createGateSlime(true,false));
+      slime=slimes[0];
+      secondSlimeTimer=Infinity;
+    }else{
+      // STAGE 4は通常・ジャンパー・エコーを1匹ずつ。
+      slimes.push(createGateSlime(false,false));
+      slimes.push(createGateSlime(true,false));
+      slimes.push(createGateSlime(false,true));
       slime=slimes[0];
       secondSlimeTimer=Infinity;
     }
@@ -276,8 +283,8 @@
     slimes.push(createGateSlime());
   }
 
-  function spawnReplacementSlime(mutant=false){
-    slimes.push(createGateSlime(mutant));
+  function spawnReplacementSlime(mutant=false,echo=false){
+    slimes.push(createGateSlime(mutant,echo));
   }
 
 
@@ -538,7 +545,7 @@
     if(target){
       const index=slimes.indexOf(target);
       if(index>=0) slimes.splice(index,1);
-      scoreRespawnTimers.push({time:1.15,mutant:!!target.mutant});
+      scoreRespawnTimers.push({time:1.15,mutant:!!target.mutant,echo:!!target.echo});
     }
 
     waterShots.length=0;
@@ -565,7 +572,7 @@
     if(checkStageClear()) return;
     scoreMessageTimer=.95;
     // 得点した個体だけを消し、ほかのスライムは残す。
-    scoreRespawnTimers.push({time:1.15,mutant:!!target.mutant});
+    scoreRespawnTimers.push({time:1.15,mutant:!!target.mutant,echo:!!target.echo});
   }
 
   function slimeReachedCell(target,cell){
@@ -663,6 +670,7 @@
     slime.wobble += dt * (slime.state==='idle' ? 2.2 : 5.5);
     slime.landingPulse=Math.max(0,slime.landingPulse-dt*4.5);
     slime.wetFlash=Math.max(0,slime.wetFlash-dt*2.8);
+    slime.echoPulse=Math.max(0,(slime.echoPulse||0)-dt*2.2);
     slime.stateTime+=dt;
 
     if(slime.state==='idle'){
@@ -809,6 +817,10 @@
             target.stateTime=0;
             target.idleDuration=.16;
           }
+          if(target.echo){
+            target.echoPulse=1;
+            emitNoise(target.x,target.y,target);
+          }
           waterShots.splice(i,1);
           hit=true;
           break;
@@ -834,45 +846,47 @@
     return dy<0?'up':'down';
   }
 
+  function emitNoise(x,y,sourceSlime=null){
+    // 爆竹とエコースライムで共通の音反応。茂みは音を遮らない。
+    for(const target of slimes){
+      if(target===sourceSlime) continue;
+      target.facing=directionTowardPoint(target.x,target.y,x,y);
+      target.moveDir=target.facing;
+      if(target.alertState==='warning'){
+        target.alertState='none';
+        target.alertTime=0;
+      }
+    }
+    for(const target of flowers){
+      if(target.state==='flying') continue;
+      const cell=cellFromPosition(target.x,target.y);
+      const open=availableDirections(cell.x,cell.y);
+      if(!open.length) continue;
+      open.sort((a,b)=>{
+        const da=DIRS[a],db=DIRS[b];
+        const distA=Math.hypot(cellCenterX(cell.x+da.x)-x,cellCenterY(cell.y+da.y)-y);
+        const distB=Math.hypot(cellCenterX(cell.x+db.x)-x,cellCenterY(cell.y+db.y)-y);
+        return distB-distA;
+      });
+      const away=open[0];
+      target.facing=away;
+      target.moveDir=away;
+      target.forcedDir=away;
+      target.forcedHops=5;
+      target.soundReact=.75;
+      target.alertState='none';target.alertTime=0;target.escapeTime=0;
+      target.state='idle';target.stateTime=0;target.idleDuration=0;
+    }
+    soundRings.push({x,y,life:.55,maxLife:.55});
+  }
+
   function updateFirecrackers(dt){
     firecrackerCooldown=Math.max(0,firecrackerCooldown-dt);
     for(let i=firecrackers.length-1;i>=0;i--){
       const f=firecrackers[i];
       f.timer-=dt; f.phase+=dt*9;
       if(f.timer<=0){
-        // 音は茂みに遮られない。全スライムが即座に音源へ振り向く。
-        for(const target of slimes){
-          target.facing=directionTowardPoint(target.x,target.y,f.x,f.y);
-          target.moveDir=target.facing;
-          if(target.alertState==='warning'){
-            target.alertState='none';
-            target.alertTime=0;
-          }
-        }
-        // 花モンスターは爆竹の音から明確に逃げる。
-        // 真後ろが塞がれている場合も、音源から最も遠ざかる空き通路を選ぶ。
-        for(const target of flowers){
-          if(target.state==='flying') continue;
-          const cell=cellFromPosition(target.x,target.y);
-          const open=availableDirections(cell.x,cell.y);
-          if(!open.length) continue;
-          open.sort((a,b)=>{
-            const da=DIRS[a], db=DIRS[b];
-            const distA=Math.hypot(cellCenterX(cell.x+da.x)-f.x,cellCenterY(cell.y+da.y)-f.y);
-            const distB=Math.hypot(cellCenterX(cell.x+db.x)-f.x,cellCenterY(cell.y+db.y)-f.y);
-            return distB-distA;
-          });
-          const away=open[0];
-          target.facing=away;
-          target.moveDir=away;
-          target.forcedDir=away;
-          target.forcedHops=5;
-          target.soundReact=.75;
-          target.alertState='none';target.alertTime=0;target.escapeTime=0;
-          // 移動途中でも一度レール中央へ戻し、すぐ逃走を開始する。
-          target.state='idle';target.stateTime=0;target.idleDuration=0;
-        }
-        soundRings.push({x:f.x,y:f.y,life:.55,maxLife:.55});
+        emitNoise(f.x,f.y);
         firecrackers.splice(i,1);
       }
     }
@@ -902,7 +916,7 @@
       scoreRespawnTimers[i].time-=dt;
       if(scoreRespawnTimers[i].time<=0){
         const respawn=scoreRespawnTimers.splice(i,1)[0];
-        spawnReplacementSlime(respawn.mutant);
+        spawnReplacementSlime(respawn.mutant,respawn.echo);
       }
     }
     secondSlimeTimer-=dt;
@@ -1260,8 +1274,8 @@
     ctx.translate(x,bodyY);
     ctx.scale(scaleX,scaleY);
 
-    // 通常は水色、ジャンパーは紫がかったピンク。水を受けると隣レーンへ飛ぶことがある。
-    ctx.fillStyle=slime.mutant ? '#d889f2' : '#72d9f4';
+    // 通常は水色、ジャンパーは紫、エコーは黄色。
+    ctx.fillStyle=slime.echo ? '#f4c84f' : (slime.mutant ? '#d889f2' : '#72d9f4');
     ctx.strokeStyle='#111';
     ctx.lineWidth=5;
     ctx.lineJoin='round';
@@ -1294,7 +1308,7 @@
       ctx.bezierCurveTo(7,19,14,17,18,10);
       ctx.bezierCurveTo(10,13,-10,13,-18,10);
       ctx.closePath();
-      ctx.fillStyle=slime.mutant ? `rgba(139,63,178,${baseAlpha})` : `rgba(24,139,201,${baseAlpha})`;
+      ctx.fillStyle=slime.echo ? `rgba(191,126,18,${baseAlpha})` : (slime.mutant ? `rgba(139,63,178,${baseAlpha})` : `rgba(24,139,201,${baseAlpha})`);
       ctx.fill();
       ctx.restore();
     }
@@ -1310,6 +1324,9 @@
     ctx.fill();
     if(slime.mutant){
       ctx.fillStyle='rgba(255,230,255,.72)';
+      ctx.beginPath();ctx.arc(9,-11,2.2,0,Math.PI*2);ctx.fill();
+    }else if(slime.echo){
+      ctx.fillStyle='rgba(255,248,194,.85)';
       ctx.beginPath();ctx.arc(9,-11,2.2,0,Math.PI*2);ctx.fill();
     }
 
@@ -1366,6 +1383,14 @@
       ctx.fillStyle='#ff6961';ctx.strokeStyle='#111';ctx.lineWidth=3;
       ctx.beginPath();ctx.arc(0,0,13,0,Math.PI*2);ctx.fill();ctx.stroke();
       ctx.fillStyle='#fff';ctx.font='900 16px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!!',0,1);
+      ctx.restore();
+    }
+    if(slime.echoPulse>0){
+      ctx.save();
+      ctx.globalAlpha=Math.min(1,slime.echoPulse*1.5);
+      ctx.fillStyle='#111';ctx.strokeStyle='rgba(255,255,255,.94)';ctx.lineWidth=5;
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 17px system-ui,sans-serif';
+      ctx.strokeText('パン！',x,bodyY-55);ctx.fillText('パン！',x,bodyY-55);
       ctx.restore();
     }
   }
