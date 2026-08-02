@@ -720,28 +720,40 @@
   }
 
   function tryStartJumperLeap(target,shotDir){
-    // 現在いるレーンから、草ブロック1つを飛び越えて隣の平行レーンへ移る。
+    // 水を受けたジャンパーは、現在のレーンから2マス先の通路へ大ジャンプする。
+    // 間に草ブロックがある方向を最優先し、候補がなければ通路をまたいででも
+    // 隣の平行レーンへ移る。これにより、どの位置で水を受けても特殊反応が見える。
     const cx=Math.max(0,Math.min(COLS-1,Math.round(target.x/TILE-.5)));
     const cy=Math.max(0,Math.min(ROWS-1,Math.round(target.y/TILE-.5)));
     const preferred=(shotDir==='up'||shotDir==='down') ? ['left','right'] : ['up','down'];
     const fallback=['up','down','left','right'];
-    const findCandidates=dirs=>dirs.filter(dir=>{
+
+    const collect=dirs=>dirs.map(dir=>{
       const d=DIRS[dir];
       const middleX=cx+d.x,middleY=cy+d.y;
       const landingX=cx+d.x*2,landingY=cy+d.y*2;
-      return !!map[middleY] && map[middleY][middleX]===1 && isOpenCell(landingX,landingY);
-    });
-    let candidates=findCandidates(preferred);
-    if(!candidates.length) candidates=findCandidates(fallback);
+      if(!isOpenCell(landingX,landingY)) return null;
+      const middleIsBlock=!!map[middleY] && map[middleY][middleX]===1;
+      return {dir,middleIsBlock};
+    }).filter(Boolean);
+
+    let candidates=collect(preferred);
+    if(!candidates.length) candidates=collect(fallback);
     if(!candidates.length) return false;
-    const dir=candidates[Math.floor(Math.random()*candidates.length)];
+
+    // 草を飛び越えられる候補があれば、必ずそちらを選ぶ。
+    const blockCandidates=candidates.filter(c=>c.middleIsBlock);
+    if(blockCandidates.length) candidates=blockCandidates;
+    const chosen=candidates[Math.floor(Math.random()*candidates.length)];
+    const dir=chosen.dir;
     const d=DIRS[dir];
+
     target.alertState='none';target.alertTime=0;
     target.forcedDir=null;target.forcedHops=0;
     target.moveDir=dir;target.facing=dir;
     target.hopFromX=target.x;target.hopFromY=target.y;
     target.hopToX=cellCenterX(cx+d.x*2);target.hopToY=cellCenterY(cy+d.y*2);
-    target.hopProgress=0;target.hopDuration=.78;
+    target.hopProgress=0;target.hopDuration=.82;
     target.state='hop';target.stateTime=0;
     target.jumperLeap=true;target.wetFlash=1;
     return true;
@@ -785,7 +797,7 @@
         const dx=target.x-hitX, dy=target.y-hitY;
         if(dx*dx+dy*dy<24*24){
           // 紫のジャンパーは約50%で、草1ブロックを越えて隣レーンへ大ジャンプ。
-          if(target.mutant && Math.random()<.5 && tryStartJumperLeap(target,shot.dir)){
+          if(target.mutant && tryStartJumperLeap(target,shot.dir)){
             waterShots.splice(i,1);hit=true;break;
           }
           const sourceDir={up:'down',down:'up',left:'right',right:'left'}[shot.dir];
