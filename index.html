@@ -58,7 +58,7 @@
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。5点取るとステージクリアです。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。5点取るとステージクリアです。STAGE 3では紫色の変異スライムが登場します。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -146,8 +146,9 @@
       idleDuration:options.idleDuration ?? (0.45+Math.random()*0.75),hopDuration:0.46,
       hopFromX:x,hopFromY:y,hopToX:x,hopToY:y,hopProgress:0,
       landingPulse:0,forcedDir:options.forcedDir ?? null,forcedHops:options.forcedHops ?? 0,wetFlash:0,
-      alertState:'none',alertTime:0,alertDuration:0.8,
-      spawnGrace:options.spawnGrace ?? 0,spawnEffect:options.spawnEffect ?? 0
+      alertState:'none',alertTime:0,alertDuration:options.mutant ? 0.65 : 0.8,
+      spawnGrace:options.spawnGrace ?? 0,spawnEffect:options.spawnEffect ?? 0,
+      mutant:!!options.mutant
     };
   }
   function chooseSpawnExit(){
@@ -162,10 +163,12 @@
     }
     return best||{x:5,y:4,dir:'left'};
   }
-  function createGateSlime(){
+  function createGateSlime(mutant=false){
     const exit=chooseSpawnExit();
     return createSlime(cellCenterX(exit.x),cellCenterY(exit.y),exit.dir,{
-      forcedDir:exit.dir,forcedHops:1,idleDuration:.18,spawnGrace:1.2,spawnEffect:.7
+      forcedDir:exit.dir,forcedHops:1,
+      idleDuration:mutant ? .12 : .18,
+      spawnGrace:1.2,spawnEffect:.7,mutant
     });
   }
   let slime=createSlime(cellCenterX(5),cellCenterY(4),'left',{forcedDir:'left',forcedHops:1,idleDuration:.18,spawnGrace:1.0,spawnEffect:.7});
@@ -187,7 +190,7 @@
   let running = false;
   let last = performance.now();
   const STAGE_TARGET = 5;
-  const MAX_STAGE = 2;
+  const MAX_STAGE = 3;
   let stage = 1;
   let scores = 0;
   let misses = 0;
@@ -253,10 +256,16 @@
       slime=createSlime(cellCenterX(5),cellCenterY(4),'left',{forcedDir:'left',forcedHops:1,idleDuration:.18,spawnGrace:1.0,spawnEffect:.7});
       slimes.push(slime);
       secondSlimeTimer=18;
+    }else if(stage===2){
+      // STAGE 2は最初から通常スライム2匹。
+      slimes.push(createGateSlime(false));
+      slimes.push(createGateSlime(false));
+      slime=slimes[0];
+      secondSlimeTimer=Infinity;
     }else{
-      // STAGE 2は最初からスライム2匹。能力や反応速度は変えない。
-      slimes.push(createGateSlime());
-      slimes.push(createGateSlime());
+      // STAGE 3は通常スライム1匹＋変異スライム1匹。
+      slimes.push(createGateSlime(false));
+      slimes.push(createGateSlime(true));
       slime=slimes[0];
       secondSlimeTimer=Infinity;
     }
@@ -267,8 +276,8 @@
     slimes.push(createGateSlime());
   }
 
-  function spawnReplacementSlime(){
-    slimes.push(createGateSlime());
+  function spawnReplacementSlime(mutant=false){
+    slimes.push(createGateSlime(mutant));
   }
 
 
@@ -529,7 +538,7 @@
     if(target){
       const index=slimes.indexOf(target);
       if(index>=0) slimes.splice(index,1);
-      scoreRespawnTimers.push(1.15);
+      scoreRespawnTimers.push({time:1.15,mutant:!!target.mutant});
     }
 
     waterShots.length=0;
@@ -556,7 +565,7 @@
     if(checkStageClear()) return;
     scoreMessageTimer=.95;
     // 得点した個体だけを消し、ほかのスライムは残す。
-    scoreRespawnTimers.push(1.15);
+    scoreRespawnTimers.push({time:1.15,mutant:!!target.mutant});
   }
 
   function slimeReachedCell(target,cell){
@@ -574,7 +583,8 @@
     if(!d) return false;
     const dx=player.x-slime.x, dy=player.y-slime.y;
     const forward=dx*d.x+dy*d.y;
-    if(forward<=0 || forward>TILE*4.5) return false;
+    const visionTiles=slime.mutant ? 5.1 : 4.5;
+    if(forward<=0 || forward>TILE*visionTiles) return false;
     const sideways=Math.abs(dx*d.y-dy*d.x);
     if(sideways>TILE*.38) return false;
 
@@ -642,7 +652,7 @@
     slime.hopToX=cellCenterX(cell.x+d.x);
     slime.hopToY=cellCenterY(cell.y+d.y);
     slime.hopProgress=0;
-    slime.hopDuration=slime.alertState==='found' ? .34 : (slime.forcedDir ? .66+Math.random()*.08 : .42+Math.random()*.10);
+    slime.hopDuration=slime.alertState==='found' ? (slime.mutant ? .30 : .34) : (slime.forcedDir ? (slime.mutant ? .56+Math.random()*.07 : .66+Math.random()*.08) : (slime.mutant ? .36+Math.random()*.08 : .42+Math.random()*.10));
     slime.state='hop';
     slime.stateTime=0;
   }
@@ -678,7 +688,7 @@
         slime.state='idle';
         slime.stateTime=0;
         // ときどき長めにぼんやりする。
-        slime.idleDuration=slime.alertState==='found' ? .08 : (slime.forcedDir ? .28+Math.random()*.18 : (Math.random()<.22 ? .9+Math.random()*1.0 : .22+Math.random()*.55));
+        slime.idleDuration=slime.alertState==='found' ? (slime.mutant ? .05 : .08) : (slime.forcedDir ? (slime.mutant ? .20+Math.random()*.14 : .28+Math.random()*.18) : (Math.random()<.22 ? (slime.mutant ? .65+Math.random()*.75 : .9+Math.random()*1.0) : (slime.mutant ? .15+Math.random()*.42 : .22+Math.random()*.55)));
         slime.landingPulse=1;
 
       }
@@ -844,10 +854,10 @@
     if(roundState==='allClear') return;
     scoreMessageTimer=Math.max(0,scoreMessageTimer-dt);
     for(let i=scoreRespawnTimers.length-1;i>=0;i--){
-      scoreRespawnTimers[i]-=dt;
-      if(scoreRespawnTimers[i]<=0){
-        scoreRespawnTimers.splice(i,1);
-        spawnReplacementSlime();
+      scoreRespawnTimers[i].time-=dt;
+      if(scoreRespawnTimers[i].time<=0){
+        const respawn=scoreRespawnTimers.splice(i,1)[0];
+        spawnReplacementSlime(respawn.mutant);
       }
     }
     secondSlimeTimer-=dt;
@@ -1205,8 +1215,8 @@
     ctx.translate(x,bodyY);
     ctx.scale(scaleX,scaleY);
 
-    // 凹凸のない、丸くて下側が少し広い水色スライム。
-    ctx.fillStyle='#72d9f4';
+    // 通常は水色、変異個体は紫がかったピンク。形と反応方法は同じ。
+    ctx.fillStyle=slime.mutant ? '#d889f2' : '#72d9f4';
     ctx.strokeStyle='#111';
     ctx.lineWidth=5;
     ctx.lineJoin='round';
@@ -1239,7 +1249,7 @@
       ctx.bezierCurveTo(7,19,14,17,18,10);
       ctx.bezierCurveTo(10,13,-10,13,-18,10);
       ctx.closePath();
-      ctx.fillStyle=`rgba(24,139,201,${baseAlpha})`;
+      ctx.fillStyle=slime.mutant ? `rgba(139,63,178,${baseAlpha})` : `rgba(24,139,201,${baseAlpha})`;
       ctx.fill();
       ctx.restore();
     }
@@ -1253,6 +1263,10 @@
     ctx.beginPath();
     ctx.arc(-2,-15,1.5,0,Math.PI*2);
     ctx.fill();
+    if(slime.mutant){
+      ctx.fillStyle='rgba(255,230,255,.72)';
+      ctx.beginPath();ctx.arc(9,-11,2.2,0,Math.PI*2);ctx.fill();
+    }
 
     // 白目は使わず、黒目＋ごく小さな光だけ。4方向の向きを表現。
     if(slime.facing==='up'){
