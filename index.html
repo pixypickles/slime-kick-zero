@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.45</title>
+<title>SLIME KICK ZERO v0.46</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -58,7 +58,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.45　カスタムモード</div>
+      <div class="sub">v0.46　カスタムモード</div>
       <div class="note">
         人とスライムが、通路中央の見えないレール上を動きます。<br>
         スライムは通路を気ままに進み、交差点で方向を選びます。<br>
@@ -1422,14 +1422,14 @@
       const flap=Math.sin(bee.phase)*2.2;
       ctx.fillStyle='rgba(235,250,255,.9)';ctx.strokeStyle='#111';ctx.lineWidth=1.6;
       ctx.beginPath();
-      ctx.ellipse(-2,-8-flap*.25,6,3.4,-.45,0,Math.PI*2);
-      ctx.ellipse(-2,8+flap*.25,6,3.4,.45,0,Math.PI*2);
+      ctx.ellipse(-3,-9-flap*.3,7.5,4.2,-.45,0,Math.PI*2);
+      ctx.ellipse(-3,9+flap*.3,7.5,4.2,.45,0,Math.PI*2);
       ctx.fill();ctx.stroke();
       ctx.fillStyle='#f7c72e';ctx.strokeStyle='#111';ctx.lineWidth=2.8;
-      ctx.beginPath();ctx.ellipse(0,0,10,6.5,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.beginPath();ctx.ellipse(0,0,12,7.5,0,0,Math.PI*2);ctx.fill();ctx.stroke();
       ctx.strokeStyle='#111';ctx.lineWidth=2.4;
-      ctx.beginPath();ctx.moveTo(-3,-5.3);ctx.lineTo(-3,5.3);ctx.moveTo(3,-5.3);ctx.lineTo(3,5.3);ctx.stroke();
-      ctx.fillStyle='#111';ctx.beginPath();ctx.arc(8,-2,1.5,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.moveTo(-4,-6.2);ctx.lineTo(-4,6.2);ctx.moveTo(4,-6.2);ctx.lineTo(4,6.2);ctx.stroke();
+      ctx.fillStyle='#111';ctx.beginPath();ctx.arc(10,-2.2,1.8,0,Math.PI*2);ctx.fill();
       ctx.restore();
     }
     cx/=bees.length;cy/=bees.length;
@@ -1841,6 +1841,12 @@
         ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();ctx.arc(0,-2,1.5,0,Math.PI*2);ctx.fill();ctx.restore();
       }else drawBush(item.x,item.y);
     }
+
+    // 蜂はレール上の奥行きレイヤーとは別に、盤面の最前面へ必ず描画する。
+    // 以前は未使用の drawFirecrackers() 内からしか呼ばれておらず、
+    // 当たり判定だけ動いて蜂が見えない状態になっていた。
+    drawBees();
+
     for(const ring of soundRings){const t=1-ring.life/ring.maxLife;ctx.save();ctx.strokeStyle=`rgba(255,120,55,${1-t})`;ctx.lineWidth=5*(1-t)+1;ctx.beginPath();ctx.arc(ring.x,ring.y,12+t*70,0,Math.PI*2);ctx.stroke();ctx.fillStyle=`rgba(255,255,255,${1-t})`;ctx.font='900 20px system-ui';ctx.textAlign='center';ctx.fillText('パン！',ring.x,ring.y-18-t*10);ctx.restore();}
     for(const cloud of pollenClouds){
       const t=1-cloud.life/cloud.maxLife;ctx.save();
