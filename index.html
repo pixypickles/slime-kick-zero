@@ -58,7 +58,7 @@
         Aボタンで、音のしない水鉄砲を撃てます。<br>
         水は通路に沿ってゆっくり進み、茂みに当たると消えます。<br>
         水が当たると、スライムは水が飛んできた方向へ振り向き、ゆっくり数回跳ねます。<br>
-        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。5点取るとステージクリアです。STAGE 3では紫色の変異スライムが登場します。
+        スライムの正面約4.5マス以内に入ると「！」が出ます。<br>約0.8秒以内に茂みの角へ隠れれば、気づかれずに済みます。<br>見つかったまま約0.8秒経つと、スライムが近づいてきます。<br>右上の相手の村へ導けば得点、左下の自分の村へ入られるか「!!」のスライムに触れられると失点です。<br>Bボタンで爆竹を置けます。<br>中央の侵入不可ゲートから、周囲4方向の通路へスライムが現れます。約18秒後に2匹目も現れます。爆竹の音は茂み越しでも届きます。5点取るとステージクリアです。STAGE 3では、水を受けると隣のレーンへ大ジャンプする紫色のジャンパースライムが登場します。
       </div>
       <button id="startBtn" type="button">試合開始</button>
     </div>
@@ -146,9 +146,9 @@
       idleDuration:options.idleDuration ?? (0.45+Math.random()*0.75),hopDuration:0.46,
       hopFromX:x,hopFromY:y,hopToX:x,hopToY:y,hopProgress:0,
       landingPulse:0,forcedDir:options.forcedDir ?? null,forcedHops:options.forcedHops ?? 0,wetFlash:0,
-      alertState:'none',alertTime:0,alertDuration:options.mutant ? 0.65 : 0.8,
+      alertState:'none',alertTime:0,alertDuration:0.8,
       spawnGrace:options.spawnGrace ?? 0,spawnEffect:options.spawnEffect ?? 0,
-      mutant:!!options.mutant
+      mutant:!!options.mutant,jumperLeap:false
     };
   }
   function chooseSpawnExit(){
@@ -263,7 +263,7 @@
       slime=slimes[0];
       secondSlimeTimer=Infinity;
     }else{
-      // STAGE 3は通常スライム1匹＋変異スライム1匹。
+      // STAGE 3は通常スライム1匹＋ジャンパースライム1匹。
       slimes.push(createGateSlime(false));
       slimes.push(createGateSlime(true));
       slime=slimes[0];
@@ -583,7 +583,7 @@
     if(!d) return false;
     const dx=player.x-slime.x, dy=player.y-slime.y;
     const forward=dx*d.x+dy*d.y;
-    const visionTiles=slime.mutant ? 5.1 : 4.5;
+    const visionTiles=4.5;
     if(forward<=0 || forward>TILE*visionTiles) return false;
     const sideways=Math.abs(dx*d.y-dy*d.x);
     if(sideways>TILE*.38) return false;
@@ -652,7 +652,7 @@
     slime.hopToX=cellCenterX(cell.x+d.x);
     slime.hopToY=cellCenterY(cell.y+d.y);
     slime.hopProgress=0;
-    slime.hopDuration=slime.alertState==='found' ? (slime.mutant ? .30 : .34) : (slime.forcedDir ? (slime.mutant ? .56+Math.random()*.07 : .66+Math.random()*.08) : (slime.mutant ? .36+Math.random()*.08 : .42+Math.random()*.10));
+    slime.hopDuration=slime.alertState==='found' ? .34 : (slime.forcedDir ? .66+Math.random()*.08 : .42+Math.random()*.10);
     slime.state='hop';
     slime.stateTime=0;
   }
@@ -688,8 +688,9 @@
         slime.state='idle';
         slime.stateTime=0;
         // ときどき長めにぼんやりする。
-        slime.idleDuration=slime.alertState==='found' ? (slime.mutant ? .05 : .08) : (slime.forcedDir ? (slime.mutant ? .20+Math.random()*.14 : .28+Math.random()*.18) : (Math.random()<.22 ? (slime.mutant ? .65+Math.random()*.75 : .9+Math.random()*1.0) : (slime.mutant ? .15+Math.random()*.42 : .22+Math.random()*.55)));
+        slime.idleDuration=slime.alertState==='found' ? .08 : (slime.forcedDir ? .28+Math.random()*.18 : (Math.random()<.22 ? .9+Math.random()*1.0 : .22+Math.random()*.55));
         slime.landingPulse=1;
+        slime.jumperLeap=false;
 
       }
     }
@@ -716,6 +717,34 @@
       phase:Math.random()*Math.PI*2
     });
     waterCooldown=.38;
+  }
+
+  function tryStartJumperLeap(target,shotDir){
+    // 現在いるレーンから、草ブロック1つを飛び越えて隣の平行レーンへ移る。
+    const cx=Math.max(0,Math.min(COLS-1,Math.round(target.x/TILE-.5)));
+    const cy=Math.max(0,Math.min(ROWS-1,Math.round(target.y/TILE-.5)));
+    const preferred=(shotDir==='up'||shotDir==='down') ? ['left','right'] : ['up','down'];
+    const fallback=['up','down','left','right'];
+    const findCandidates=dirs=>dirs.filter(dir=>{
+      const d=DIRS[dir];
+      const middleX=cx+d.x,middleY=cy+d.y;
+      const landingX=cx+d.x*2,landingY=cy+d.y*2;
+      return !!map[middleY] && map[middleY][middleX]===1 && isOpenCell(landingX,landingY);
+    });
+    let candidates=findCandidates(preferred);
+    if(!candidates.length) candidates=findCandidates(fallback);
+    if(!candidates.length) return false;
+    const dir=candidates[Math.floor(Math.random()*candidates.length)];
+    const d=DIRS[dir];
+    target.alertState='none';target.alertTime=0;
+    target.forcedDir=null;target.forcedHops=0;
+    target.moveDir=dir;target.facing=dir;
+    target.hopFromX=target.x;target.hopFromY=target.y;
+    target.hopToX=cellCenterX(cx+d.x*2);target.hopToY=cellCenterY(cy+d.y*2);
+    target.hopProgress=0;target.hopDuration=.78;
+    target.state='hop';target.stateTime=0;
+    target.jumperLeap=true;target.wetFlash=1;
+    return true;
   }
 
   function updateWater(dt){
@@ -755,6 +784,10 @@
         const hitX=shot.x+segX*t, hitY=shot.y+segY*t;
         const dx=target.x-hitX, dy=target.y-hitY;
         if(dx*dx+dy*dy<24*24){
+          // 紫のジャンパーは約50%で、草1ブロックを越えて隣レーンへ大ジャンプ。
+          if(target.mutant && Math.random()<.5 && tryStartJumperLeap(target,shot.dir)){
+            waterShots.splice(i,1);hit=true;break;
+          }
           const sourceDir={up:'down',down:'up',left:'right',right:'left'}[shot.dir];
           target.facing=sourceDir;
           target.forcedDir=sourceDir;
@@ -1189,7 +1222,7 @@
 
   function drawSlime(){
     const x=slime.x,y=slime.y;
-    const hopLift=slime.state==='hop' ? Math.sin(slime.hopProgress*Math.PI)*13 : 0;
+    const hopLift=slime.state==='hop' ? Math.sin(slime.hopProgress*Math.PI)*(slime.jumperLeap?34:13) : 0;
     const idleBob=slime.state==='idle' ? Math.sin(slime.wobble)*.55 : 0;
     const bodyY=y-hopLift+idleBob;
     const landing=slime.landingPulse;
@@ -1215,7 +1248,7 @@
     ctx.translate(x,bodyY);
     ctx.scale(scaleX,scaleY);
 
-    // 通常は水色、変異個体は紫がかったピンク。形と反応方法は同じ。
+    // 通常は水色、ジャンパーは紫がかったピンク。水を受けると隣レーンへ飛ぶことがある。
     ctx.fillStyle=slime.mutant ? '#d889f2' : '#72d9f4';
     ctx.strokeStyle='#111';
     ctx.lineWidth=5;
