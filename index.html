@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.46</title>
+<title>SLIME KICK ZERO v0.49</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -62,7 +62,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.46　カスタムモード</div>
+      <div class="sub">v0.49　カスタムモード</div>
       <div class="note">
         あなたの村は、ちょっと臭いスライムに困っています。<br>
         水鉄砲や爆竹を使って、スライムを<b>右上の村</b>へ誘導しましょう！<br><br>
@@ -144,6 +144,98 @@
   const missDisplay = document.getElementById('missDisplay');
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
+
+  // 軽量な効果音。音声ファイルを使わず、Web Audio APIで生成する。
+  let audioCtx = null;
+  let audioMaster = null;
+  let hopSoundCooldown = 0;
+  let beeBuzzCooldown = 0;
+
+  function ensureAudio(){
+    try{
+      if(!audioCtx){
+        const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+        if(!AudioContextClass) return null;
+        audioCtx=new AudioContextClass();
+        audioMaster=audioCtx.createGain();
+        audioMaster.gain.value=.34;
+        audioMaster.connect(audioCtx.destination);
+      }
+      if(audioCtx.state==='suspended') audioCtx.resume();
+      return audioCtx;
+    }catch(_){return null;}
+  }
+
+  function tone(freq=440,duration=.1,options={}){
+    const ac=ensureAudio();
+    if(!ac||!audioMaster) return;
+    const now=ac.currentTime+(options.delay||0);
+    const osc=ac.createOscillator();
+    const gain=ac.createGain();
+    osc.type=options.type||'sine';
+    osc.frequency.setValueAtTime(Math.max(30,freq),now);
+    if(options.endFreq) osc.frequency.exponentialRampToValueAtTime(Math.max(30,options.endFreq),now+duration);
+    const volume=options.volume??.15;
+    gain.gain.setValueAtTime(.0001,now);
+    gain.gain.exponentialRampToValueAtTime(Math.max(.0002,volume),now+.008);
+    gain.gain.exponentialRampToValueAtTime(.0001,now+duration);
+    osc.connect(gain);gain.connect(audioMaster);
+    osc.start(now);osc.stop(now+duration+.02);
+  }
+
+  function noise(duration=.12,volume=.12,delay=0){
+    const ac=ensureAudio();
+    if(!ac||!audioMaster) return;
+    const length=Math.max(1,Math.floor(ac.sampleRate*duration));
+    const buffer=ac.createBuffer(1,length,ac.sampleRate);
+    const data=buffer.getChannelData(0);
+    for(let i=0;i<length;i++) data[i]=(Math.random()*2-1)*(1-i/length);
+    const src=ac.createBufferSource();
+    const filter=ac.createBiquadFilter();
+    const gain=ac.createGain();
+    filter.type='bandpass';filter.frequency.value=1200;filter.Q.value=.65;
+    gain.gain.value=volume;
+    src.buffer=buffer;src.connect(filter);filter.connect(gain);gain.connect(audioMaster);
+    src.start(ac.currentTime+delay);
+  }
+
+  function sfxShoot(){
+    tone(920,.075,{type:'square',endFreq:570,volume:.10});
+    noise(.045,.035);
+  }
+  function sfxWaterHit(){
+    tone(430,.11,{type:'sine',endFreq:610,volume:.11});
+    tone(720,.07,{type:'sine',volume:.045,delay:.035});
+  }
+  function sfxHop(){
+    if(hopSoundCooldown>0) return;
+    hopSoundCooldown=.09;
+    tone(235,.065,{type:'sine',endFreq:315,volume:.035});
+  }
+  function sfxBang(){
+    noise(.16,.20);
+    tone(150,.13,{type:'square',endFreq:72,volume:.13});
+  }
+  function sfxScore(flower=false){
+    const base=flower?620:520;
+    tone(base,.10,{type:'triangle',volume:.11});
+    tone(base*1.25,.12,{type:'triangle',volume:.10,delay:.09});
+  }
+  function sfxLoss(bee=false){
+    if(bee){
+      tone(230,.10,{type:'sawtooth',endFreq:120,volume:.13});
+      tone(175,.14,{type:'square',endFreq:75,volume:.10,delay:.07});
+    }else{
+      tone(260,.23,{type:'triangle',endFreq:105,volume:.13});
+    }
+  }
+  function sfxClear(){
+    [523,659,784,1047].forEach((f,i)=>tone(f,.18,{type:'triangle',volume:.105,delay:i*.10}));
+  }
+  function sfxBuzz(volume=.07){
+    tone(125,.10,{type:'sawtooth',endFreq:145,volume});
+    tone(188,.09,{type:'square',endFreq:166,volume:volume*.42});
+  }
 
   const COLS = 13, ROWS = 9, TILE = 48;
   // 村の建物は外周の角に置き、実際の得点・失点判定は隣接する入口マスで行う。
@@ -596,6 +688,7 @@
   function triggerFlowerScore(target){
     if(roundState!=='play') return;
     scores++;updateScoreDisplay();
+    sfxScore(true);
     target.scoreFlower=true;
     const i=flowers.indexOf(target);if(i>=0) flowers.splice(i,1);
     if(checkStageClear()) return;
@@ -624,6 +717,7 @@
 
   function checkStageClear(){
     if(scores<targetScore() || roundState!=='play') return false;
+    sfxClear();
     if(customMode){
       roundState='allClear';
       freezeControls();
@@ -657,6 +751,7 @@
   function triggerLoss(target,reason='village',amount=1){
     if(roundState!=='play') return;
     misses+=amount;
+    sfxLoss(reason==='bee');
     lossAmount=amount;
     updateMissDisplay();
     lossReason=reason;
@@ -688,6 +783,7 @@
   function triggerScore(target){
     if(roundState!=='play') return;
     scores++;
+    sfxScore(false);
     updateScoreDisplay();
     const index=slimes.indexOf(target);
     if(index>=0) slimes.splice(index,1);
@@ -784,6 +880,7 @@
     slime.hopDuration=slime.alertState==='found' ? .34 : (slime.forcedDir ? .66+Math.random()*.08 : .42+Math.random()*.10);
     slime.state='hop';
     slime.stateTime=0;
+    sfxHop();
   }
 
   function updateSlime(dt){
@@ -861,6 +958,7 @@
       phase:Math.random()*Math.PI*2
     });
     waterCooldown=.38;
+    sfxShoot();
   }
 
   function tryStartJumperLeap(target,shotDir){
@@ -940,6 +1038,7 @@
       const ny=shot.y+shot.vy*dt;
       const c=cellFromPosition(nx,ny);
       if(segmentHitsHive(shot.x,shot.y,nx,ny)){
+        sfxWaterHit();
         activateHive();
         waterShots.splice(i,1);
         continue;
@@ -960,6 +1059,7 @@
         const hitX=shot.x+segX*t,hitY=shot.y+segY*t;
         const dx=target.x-hitX,dy=target.y-hitY;
         if(dx*dx+dy*dy<23*23){
+          sfxWaterHit();
           releaseSleepPollen(target,'water');
           target.facing=shot.dir;target.forcedDir=shot.dir;target.forcedHops=3;target.wetFlash=1;
           target.alertState='none';target.alertTime=0;target.escapeTime=0;
@@ -973,6 +1073,7 @@
         const hitX=shot.x+segX*t, hitY=shot.y+segY*t;
         const dx=target.x-hitX, dy=target.y-hitY;
         if(dx*dx+dy*dy<24*24){
+          sfxWaterHit();
           // 紫のジャンパーは約50%で、草1ブロックを越えて隣レーンへ大ジャンプ。
           if(target.mutant && tryStartJumperLeap(target,shot.dir)){
             waterShots.splice(i,1);hit=true;break;
@@ -1067,6 +1168,7 @@
       x:cellCenterX(c.x), y:cellCenterY(c.y), timer:1.0, phase:0
     });
     firecrackerCooldown=.65;
+    tone(330,.055,{type:'square',endFreq:250,volume:.055});
   }
 
   function directionTowardPoint(fromX,fromY,toX,toY){
@@ -1076,6 +1178,7 @@
   }
 
   function emitNoise(x,y,sourceSlime=null){
+    sfxBang();
     // 爆竹とエコースライムで共通の音反応。茂みは音を遮らない。
     for(const target of slimes){
       if(target===sourceSlime) continue;
@@ -1134,6 +1237,14 @@
   }
 
   function update(dt){
+    hopSoundCooldown=Math.max(0,hopSoundCooldown-dt);
+    beeBuzzCooldown=Math.max(0,beeBuzzCooldown-dt);
+    if(bees.length && beeBuzzCooldown<=0){
+      const nearest=Math.min(...bees.map(b=>Math.hypot(player.x-b.x,player.y-b.y)));
+      const volume=Math.max(.025,Math.min(.10,.105-nearest/3800));
+      sfxBuzz(volume);
+      beeBuzzCooldown=.16;
+    }
     if(roundState==='lost'){
       roundTimer-=dt;
       if(roundTimer<=0) resetRoundAfterLoss();
@@ -1923,6 +2034,7 @@
   }
 
   function startGame(isCustom=false){
+    ensureAudio();
     customMode=isCustom;
     stage=1;scores=0;misses=0;stageStartMisses=0;stageMissRecords.length=0;lossAmount=1;roundState='play';roundTimer=0;lossReason='village';scoreMessageTimer=0;scoreRespawnTimers.length=0;
     updateStageDisplay();updateScoreDisplay();updateMissDisplay();
