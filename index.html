@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>SLIME KICK ZERO v0.49</title>
+<title>SLIME KICK ZERO v0.55</title>
 <style>
   :root{--ui:#fff7de;--ink:#1a1a1a;--grass:#3f8f3f;--path:#e9d7a8;--wall:#244b2b;--accent:#ffcc3d}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -29,6 +29,7 @@
 
   #startBtn{font-size:1.08em;padding:18px 30px}
   #customBtn{font-size:.92em;padding:12px 18px;background:#e7d48a;box-shadow:0 6px 0 #9b8a52}
+  #mazeBtn{font-size:.92em;padding:12px 18px;background:#b7e3a1;box-shadow:0 6px 0 #5f9651}
 
   #game{flex-direction:column;background:#203a27}
   #topbar{height:54px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--ui);border-bottom:4px solid #222;font-weight:900;z-index:2}
@@ -54,6 +55,17 @@
   .customGrid select{font:inherit;font-weight:900;border:3px solid #222;border-radius:10px;background:#fff;padding:7px 10px;min-width:78px}
   .customActions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
   .secondaryBtn{background:#fff;box-shadow:0 6px 0 #777}
+  .mazeOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(20,35,24,.34);z-index:8;pointer-events:auto}
+  .mazeOverlay.show{display:flex}
+  .mazePanel{width:min(88%,390px);background:rgba(255,250,220,.97);border:5px solid #111;border-radius:22px;padding:18px;text-align:center;box-shadow:0 9px 0 rgba(0,0,0,.25)}
+  .mazePanel h2{margin:0 0 8px;font-size:30px}
+  .mazePanel p{margin:6px 0 14px;font-weight:800}
+  .mazeMenuButtons{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+  .mazeMenuButtons button{width:100%;padding:12px 14px}
+  .mazeDifficultyButtons{display:grid;grid-template-columns:1fr;gap:9px}
+  .mazeDiffBtn[data-diff="normal"]{background:#ffe08a;box-shadow:0 5px 0 #a78119}
+  .mazeDiffBtn[data-diff="hard"]{background:#ffad83;box-shadow:0 5px 0 #a94b35}
+  .mazeDiffBtn[data-diff="extreme"]{background:#f27d86;box-shadow:0 5px 0 #8d3540}
   @media (max-height:620px){#controls{height:126px}#dpad{transform:scale(.86)}#topbar{height:46px}}
 </style>
 </head>
@@ -62,7 +74,7 @@
   <section id="title" class="screen active">
     <div class="card">
       <h1>SLIME KICK ZERO</h1>
-      <div class="sub">v0.49　カスタムモード</div>
+      <div class="sub">v0.55　虫取り網調整</div>
       <div class="note">
         あなたの村は、ちょっと臭いスライムに困っています。<br>
         水鉄砲や爆竹を使って、スライムを<b>右上の村</b>へ誘導しましょう！<br><br>
@@ -80,6 +92,7 @@
       <div class="titleButtons">
         <button id="startBtn" type="button">ゲームスタート</button>
         <button id="customBtn" type="button">カスタム</button>
+        <button id="mazeBtn" type="button">迷路モード</button>
       </div>
     </div>
   </section>
@@ -113,7 +126,32 @@
       <span id="missDisplay">失点 0</span>
       <button id="backBtn" type="button" style="padding:7px 12px;box-shadow:none;border-width:3px">戻る</button>
     </div>
-    <div id="canvasWrap"><canvas id="gameCanvas" width="624" height="432"></canvas></div>
+    <div id="canvasWrap">
+      <canvas id="gameCanvas" width="624" height="432"></canvas>
+      <div id="mazeClearOverlay" class="mazeOverlay" aria-hidden="true">
+        <div class="mazePanel">
+          <h2>MAZE CLEAR!</h2>
+          <p id="mazeClearDifficulty">難易度：ちょいむず</p>
+          <div class="mazeMenuButtons">
+            <button id="mazeRetryBtn" type="button">新たな迷路に挑戦</button>
+            <button id="mazeDifficultyBtn" class="secondaryBtn" type="button">難易度変更</button>
+            <button id="mazeTitleBtn" class="secondaryBtn" type="button">タイトルへ戻る</button>
+          </div>
+        </div>
+      </div>
+      <div id="mazeDifficultyOverlay" class="mazeOverlay" aria-hidden="true">
+        <div class="mazePanel">
+          <h2>難易度変更</h2>
+          <p>選ぶと新しい迷路が始まります。</p>
+          <div class="mazeDifficultyButtons">
+            <button class="mazeDiffBtn" data-diff="normal" type="button">ちょいむず</button>
+            <button class="mazeDiffBtn" data-diff="hard" type="button">むずかしい</button>
+            <button class="mazeDiffBtn" data-diff="extreme" type="button">かなりむずい</button>
+          </div>
+          <div style="margin-top:10px"><button id="mazeDifficultyBackBtn" class="secondaryBtn" type="button">戻る</button></div>
+        </div>
+      </div>
+    </div>
     <div id="controls">
       <div id="dpad">
         <button class="dir" id="up" data-dir="up">▲</button>
@@ -135,6 +173,7 @@
   const game = document.getElementById('game');
   const startBtn = document.getElementById('startBtn');
   const customBtn = document.getElementById('customBtn');
+  const mazeBtn = document.getElementById('mazeBtn');
   const customStartBtn = document.getElementById('customStartBtn');
   const customBackBtn = document.getElementById('customBackBtn');
   const customScreen = document.getElementById('custom');
@@ -144,6 +183,13 @@
   const missDisplay = document.getElementById('missDisplay');
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
+  const mazeClearOverlay = document.getElementById('mazeClearOverlay');
+  const mazeDifficultyOverlay = document.getElementById('mazeDifficultyOverlay');
+  const mazeClearDifficulty = document.getElementById('mazeClearDifficulty');
+  const mazeRetryBtn = document.getElementById('mazeRetryBtn');
+  const mazeDifficultyBtn = document.getElementById('mazeDifficultyBtn');
+  const mazeTitleBtn = document.getElementById('mazeTitleBtn');
+  const mazeDifficultyBackBtn = document.getElementById('mazeDifficultyBackBtn');
 
   // 軽量な効果音。音声ファイルを使わず、Web Audio APIで生成する。
   let audioCtx = null;
@@ -269,6 +315,147 @@
   for(const cell of ENEMY_VILLAGE_CELLS) map[cell.y][cell.x]=0;
   for(const cell of HOME_VILLAGE_CELLS) map[cell.y][cell.x]=0;
 
+
+  function buildNormalMap(){
+    for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+      map[y][x]=(x===0||y===0||x===COLS-1||y===ROWS-1||(x%2===0&&y%2===0))?1:0;
+    }
+    for(const cell of ENEMY_VILLAGE_CELLS) map[cell.y][cell.x]=0;
+    for(const cell of HOME_VILLAGE_CELLS) map[cell.y][cell.x]=0;
+  }
+
+  function mazeEdgeKey(ax,ay,bx,by){
+    if(ax>bx || (ax===bx&&ay>by)){const tx=ax,ty=ay;ax=bx;ay=by;bx=tx;by=ty;}
+    return ax+','+ay+'|'+bx+','+by;
+  }
+  function mazeInBounds(x,y){return x>=0&&y>=0&&x<COLS&&y<ROWS;}
+  function mazeHasPassage(ax,ay,bx,by){
+    return mazeInBounds(ax,ay)&&mazeInBounds(bx,by)&&mazeOpenEdges.has(mazeEdgeKey(ax,ay,bx,by));
+  }
+  function carveMazeOnce(){
+    mazeOpenEdges.clear();
+    const visited=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+    const stack=[{x:MAZE_START_CELL.x,y:MAZE_START_CELL.y}];
+    visited[MAZE_START_CELL.y][MAZE_START_CELL.x]=true;
+    const dirs=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+    while(stack.length){
+      const cur=stack[stack.length-1];
+      const choices=[];
+      for(const d of dirs){
+        const nx=cur.x+d.x,ny=cur.y+d.y;
+        if(mazeInBounds(nx,ny)&&!visited[ny][nx]) choices.push({x:nx,y:ny});
+      }
+      if(!choices.length){stack.pop();continue;}
+      const next=choices[Math.floor(Math.random()*choices.length)];
+      mazeOpenEdges.add(mazeEdgeKey(cur.x,cur.y,next.x,next.y));
+      visited[next.y][next.x]=true;
+      stack.push(next);
+    }
+  }
+  function mazeShortestPath(){
+    const q=[{x:MAZE_START_CELL.x,y:MAZE_START_CELL.y}];
+    const prev=new Map([[cellKey(MAZE_START_CELL.x,MAZE_START_CELL.y),null]]);
+    let qi=0;
+    while(qi<q.length){
+      const cur=q[qi++];
+      if(cur.x===MAZE_GOAL_CELL.x&&cur.y===MAZE_GOAL_CELL.y) break;
+      for(const d of Object.values(DIRS)){
+        const nx=cur.x+d.x,ny=cur.y+d.y,k=cellKey(nx,ny);
+        if(!mazeInBounds(nx,ny)||prev.has(k)||!mazeHasPassage(cur.x,cur.y,nx,ny)) continue;
+        prev.set(k,cur);q.push({x:nx,y:ny});
+      }
+    }
+    const goalKey=cellKey(MAZE_GOAL_CELL.x,MAZE_GOAL_CELL.y);
+    if(!prev.has(goalKey)) return [];
+    const path=[];let cur={x:MAZE_GOAL_CELL.x,y:MAZE_GOAL_CELL.y};
+    while(cur){path.push(cur);cur=prev.get(cellKey(cur.x,cur.y));}
+    path.reverse();return path;
+  }
+  function mazeTurnCount(path){
+    let turns=0,last=null;
+    for(let i=1;i<path.length;i++){
+      const dir=(path[i].x-path[i-1].x)+','+(path[i].y-path[i-1].y);
+      if(last&&dir!==last) turns++;
+      last=dir;
+    }
+    return turns;
+  }
+  function generateMaze(){
+    const cfg=mazeDifficultyConfig();
+    // 全マスを交差点として使う薄壁式迷路。難易度ごとに短すぎる個体を捨てる。
+    let path=[];
+    for(let attempt=0;attempt<180;attempt++){
+      carveMazeOnce();
+      path=mazeShortestPath();
+      if(path.length>=cfg.minPath && mazeTurnCount(path)>=cfg.minTurns) break;
+    }
+    // 迷路モードではマス自体はすべて通路。通行可否は mazeOpenEdges で決める。
+    for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) map[y][x]=0;
+
+    mazeCampfires.clear();
+    // 最短経路上へ焚き火を均等に置く。START/GOAL付近は避ける。
+    if(path.length>10 && cfg.campfires>0){
+      for(let n=1;n<=cfg.campfires;n++){
+        const targetIndex=Math.floor(path.length*(n/(cfg.campfires+1)));
+        let chosen=null;
+        for(let off=0;off<8&&!chosen;off++){
+          for(const sign of [1,-1]){
+            const idx=Math.max(3,Math.min(path.length-4,targetIndex+off*sign));
+            const c=path[idx];
+            if(c && !mazeCampfires.has(cellKey(c.x,c.y)) && !(c.x===MAZE_START_CELL.x&&c.y===MAZE_START_CELL.y) && !(c.x===MAZE_GOAL_CELL.x&&c.y===MAZE_GOAL_CELL.y)){chosen=c;break;}
+          }
+        }
+        if(chosen) mazeCampfires.set(cellKey(chosen.x,chosen.y),{x:chosen.x,y:chosen.y,flash:0});
+      }
+    }
+
+    // むずかしい以上では、通路脇の壁際に「野生の蜂の巣」を配置する。
+    mazeHives.length=0;
+    if(cfg.hives>0){
+      const candidates=[];
+      for(let y=1;y<ROWS-1;y++) for(let x=1;x<COLS-1;x++){
+        const k=cellKey(x,y);
+        if(mazeCampfires.has(k)) continue;
+        if((x===MAZE_START_CELL.x&&y===MAZE_START_CELL.y)||(x===MAZE_GOAL_CELL.x&&y===MAZE_GOAL_CELL.y)) continue;
+        const closed=[];
+        for(const dir of ['up','right','down','left']){
+          const d=DIRS[dir],nx=x+d.x,ny=y+d.y;
+          if(!mazeInBounds(nx,ny) || !mazeHasPassage(x,y,nx,ny)) closed.push(dir);
+        }
+        if(closed.length) candidates.push({x,y,closed});
+      }
+      // START周辺を避けてランダム配置。
+      candidates.sort((a,b)=>Math.hypot(b.x-MAZE_START_CELL.x,b.y-MAZE_START_CELL.y)-Math.hypot(a.x-MAZE_START_CELL.x,a.y-MAZE_START_CELL.y));
+      const pool=candidates.slice(0,Math.max(18,cfg.hives*8));
+      for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+      for(let i=0;i<cfg.hives && i<pool.length;i++){
+        const c=pool[i],dir=c.closed[Math.floor(Math.random()*c.closed.length)],d=DIRS[dir];
+        mazeHives.push({
+          x:c.x,y:c.y,
+          wx:cellCenterX(c.x)+d.x*17, wy:cellCenterY(c.y)+d.y*17,
+          timer:cfg.hiveMin+Math.random()*Math.max(.1,cfg.hiveMax-cfg.hiveMin),
+          shake:0
+        });
+      }
+    }
+
+    // 蜂が出る難易度では虫取り網を1個配置。拾うと迷路中のBボタンで使える。
+    mazeNet={x:0,y:0,active:false,collected:false,uses:0};
+    if(cfg.hives>0 && path.length>8){
+      const preferred=path[Math.max(2,Math.min(path.length-3,Math.floor(path.length*.28)))];
+      let c=preferred;
+      const occupiedByHive=cell=>cell&&mazeHives.some(h=>h.x===cell.x&&h.y===cell.y);
+      if(c && (mazeCampfires.has(cellKey(c.x,c.y))||occupiedByHive(c))) c=null;
+      if(!c){
+        for(let idx=2;idx<path.length-2;idx++){
+          const candidate=path[idx];
+          if(!mazeCampfires.has(cellKey(candidate.x,candidate.y))&&!occupiedByHive(candidate)){c=candidate;break;}
+        }
+      }
+      if(c){mazeNet={x:c.x,y:c.y,active:true,collected:false,uses:0};}
+    }
+  }
+
   const player = {
     x: cellCenterX(HOME_VILLAGE_CELL.x),
     y: cellCenterY(HOME_VILLAGE_CELL.y),
@@ -338,6 +525,26 @@
   const STAGE_TARGET = 5;
   const MAX_STAGE = 7;
   let customMode = false;
+  let mazeMode = false;
+  const MAZE_START_CELL = {x:0,y:ROWS-1};
+  const MAZE_GOAL_CELL = {x:COLS-1,y:0};
+  const mazeCampfires = new Map();
+  // 迷路モード専用：各マスをレールの交点として扱い、レール間の薄い壁だけを管理する。
+  // 通常モードの草ブロック式マップには影響させない。
+  const mazeOpenEdges = new Set();
+  let mazeClearTimer = 0;
+  let mazeDifficulty = 'normal';
+  const MAZE_DIFFICULTIES = {
+    normal:{label:'ちょいむず',minPath:38,minTurns:9,campfires:2,jumpers:2,hives:0,hiveMin:0,hiveMax:0},
+    hard:{label:'むずかしい',minPath:48,minTurns:12,campfires:2,jumpers:3,hives:1,hiveMin:14,hiveMax:22},
+    extreme:{label:'かなりむずい',minPath:55,minTurns:14,campfires:3,jumpers:4,hives:2,hiveMin:9,hiveMax:16}
+  };
+  const mazeHives=[];
+  let mazeNet={x:0,y:0,active:false,collected:false,uses:0};
+  let netSwing=0;
+  let mazeMessage='';
+  let mazeMessageTimer=0;
+  function mazeDifficultyConfig(){return MAZE_DIFFICULTIES[mazeDifficulty]||MAZE_DIFFICULTIES.normal;}
   let customConfig = {normal:1,jumper:0,echo:0,parrot:0,flower:1,sleepy:0,hive:0,target:5};
   const customFlowerRespawns=[];
   function targetScore(){return customMode?customConfig.target:STAGE_TARGET;}
@@ -384,9 +591,10 @@
   }
 
   function resetPlayer(){
-    player.x = cellCenterX(HOME_VILLAGE_CELL.x);
-    player.y = cellCenterY(HOME_VILLAGE_CELL.y);
-    player.facing = 'right';
+    const startCell=mazeMode?MAZE_START_CELL:HOME_VILLAGE_CELL;
+    player.x = cellCenterX(startCell.x);
+    player.y = cellCenterY(startCell.y);
+    player.facing = mazeMode?'up':'right';
     player.moveDir = null;
     player.queuedDir = null;
     player.turnTarget = null;
@@ -411,6 +619,28 @@
     flowers.length=0;
     customFlowerRespawns.length=0;
     flowerRespawnTimer=0;
+
+    if(mazeMode){
+      // 迷路では難易度に応じた数のジャンパースライム。
+      const cfg=mazeDifficultyConfig();
+      for(const h of mazeHives){h.shake=0;}
+      netSwing=0;mazeMessage='';mazeMessageTimer=0;
+      const open=[];
+      for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+        if(map[y][x]===0 && !mazeCampfires.has(cellKey(x,y)) && !(x===MAZE_START_CELL.x&&y===MAZE_START_CELL.y) && !(x===MAZE_GOAL_CELL.x&&y===MAZE_GOAL_CELL.y)) open.push({x,y});
+      }
+      // STARTから遠い候補を優先しつつ、同じマスを使わない。
+      open.sort((a,b)=>Math.hypot(cellCenterX(b.x)-player.x,cellCenterY(b.y)-player.y)-Math.hypot(cellCenterX(a.x)-player.x,cellCenterY(a.y)-player.y));
+      const pool=open.slice(0,Math.max(cfg.jumpers*5,12));
+      for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+      for(let i=0;i<cfg.jumpers;i++){
+        const c=pool[i]||open[i]||{x:COLS-2,y:ROWS-2};
+        slimes.push(createSlime(cellCenterX(c.x),cellCenterY(c.y),'left',{mutant:true,spawnGrace:1.0,idleDuration:.28}));
+      }
+      slime=slimes[0]||null;
+      secondSlimeTimer=Infinity;
+      return;
+    }
 
     if(customMode){
       for(let i=0;i<customConfig.normal;i++) slimes.push(createGateSlime(false,false,false));
@@ -496,10 +726,17 @@
   }
   function cellCenterX(cx){return (cx+.5)*TILE;}
   function cellCenterY(cy){return (cy+.5)*TILE;}
-  function isOpenCell(cx,cy){return !!map[cy] && map[cy][cx]===0;}
+  function cellKey(cx,cy){return cx+','+cy;}
+  function isOpenCell(cx,cy){
+    if(mazeMode) return mazeInBounds(cx,cy) && !mazeCampfires.has(cellKey(cx,cy));
+    return !!map[cy] && map[cy][cx]===0;
+  }
   function canLeaveCell(cx,cy,dir){
     const d=DIRS[dir];
-    return !!d && isOpenCell(cx+d.x,cy+d.y);
+    if(!d) return false;
+    const nx=cx+d.x,ny=cy+d.y;
+    if(mazeMode) return mazeInBounds(nx,ny) && mazeHasPassage(cx,cy,nx,ny) && !mazeCampfires.has(cellKey(nx,ny));
+    return isOpenCell(nx,ny);
   }
   function opposite(a,b){
     if(!a||!b)return false;
@@ -536,7 +773,8 @@
         if(dist<=TILE*1.15) return {x:cx,y:cy,cx:c.x,cy:c.y,dir:turnDir};
       }
       const nx=c.x+d.x, ny=c.y+d.y;
-      if(!isOpenCell(nx,ny)) break;
+      // 迷路モードでは次セルが存在するだけでなく、間の薄壁が開いている必要がある。
+      if(!canLeaveCell(c.x,c.y,dir)) break;
       c={x:nx,y:ny};
     }
     return null;
@@ -698,11 +936,11 @@
   }
 
   function updateStageDisplay(){
-    stageDisplay.textContent=customMode?'CUSTOM':'STAGE '+stage;
+    stageDisplay.textContent=mazeMode?('迷路・'+mazeDifficultyConfig().label):(customMode?'CUSTOM':'STAGE '+stage);
   }
 
   function updateScoreDisplay(){
-    scoreDisplay.textContent='得点 '+scores+'/'+targetScore();
+    scoreDisplay.textContent=mazeMode?'ゴールへ':('得点 '+scores+'/'+targetScore());
   }
 
   function freezeControls(){
@@ -745,7 +983,7 @@
   }
 
   function updateMissDisplay(){
-    missDisplay.textContent='失点 '+misses;
+    missDisplay.textContent=mazeMode?('🔥 '+mazeCampfires.size+(mazeHives.length?'　🐝 '+mazeHives.length:'')):'失点 '+misses;
   }
 
   function triggerLoss(target,reason='village',amount=1){
@@ -962,14 +1200,32 @@
   }
 
   function tryStartJumperLeap(target,shotDir){
-    // 水を受けたジャンパーは、現在のレーンから2マス先の通路へ大ジャンプする。
-    // 間に草ブロックがある方向を最優先し、候補がなければ通路をまたいででも
-    // 隣の平行レーンへ移る。これにより、どの位置で水を受けても特殊反応が見える。
     const cx=Math.max(0,Math.min(COLS-1,Math.round(target.x/TILE-.5)));
     const cy=Math.max(0,Math.min(ROWS-1,Math.round(target.y/TILE-.5)));
     const preferred=(shotDir==='up'||shotDir==='down') ? ['left','right'] : ['up','down'];
-    const fallback=['up','down','left','right'];
 
+    if(mazeMode){
+      // 薄壁迷路では「壁1枚を飛び越えて隣レールへ移る」。
+      // 通路接続の有無は無視するが、盤外・焚き火マスへは着地しない。
+      let candidates=preferred.filter(dir=>{
+        const d=DIRS[dir],nx=cx+d.x,ny=cy+d.y;
+        return mazeInBounds(nx,ny)&&!mazeCampfires.has(cellKey(nx,ny));
+      });
+      if(!candidates.length) candidates=Object.keys(DIRS).filter(dir=>{
+        const d=DIRS[dir],nx=cx+d.x,ny=cy+d.y;
+        return mazeInBounds(nx,ny)&&!mazeCampfires.has(cellKey(nx,ny));
+      });
+      if(!candidates.length) return false;
+      const dir=candidates[Math.floor(Math.random()*candidates.length)],d=DIRS[dir];
+      target.alertState='none';target.alertTime=0;target.forcedDir=null;target.forcedHops=0;
+      target.moveDir=dir;target.facing=dir;target.hopFromX=target.x;target.hopFromY=target.y;
+      target.hopToX=cellCenterX(cx+d.x);target.hopToY=cellCenterY(cy+d.y);
+      target.hopProgress=0;target.hopDuration=.72;target.state='hop';target.stateTime=0;
+      target.jumperLeap=true;target.wetFlash=1;return true;
+    }
+
+    // 通常モードでは従来どおり、草1ブロックを越えて2マス先へ。
+    const fallback=['up','down','left','right'];
     const collect=dirs=>dirs.map(dir=>{
       const d=DIRS[dir];
       const middleX=cx+d.x,middleY=cy+d.y;
@@ -978,27 +1234,18 @@
       const middleIsBlock=!!map[middleY] && map[middleY][middleX]===1;
       return {dir,middleIsBlock};
     }).filter(Boolean);
-
     let candidates=collect(preferred);
     if(!candidates.length) candidates=collect(fallback);
     if(!candidates.length) return false;
-
-    // 草を飛び越えられる候補があれば、必ずそちらを選ぶ。
     const blockCandidates=candidates.filter(c=>c.middleIsBlock);
     if(blockCandidates.length) candidates=blockCandidates;
     const chosen=candidates[Math.floor(Math.random()*candidates.length)];
-    const dir=chosen.dir;
-    const d=DIRS[dir];
-
-    target.alertState='none';target.alertTime=0;
-    target.forcedDir=null;target.forcedHops=0;
-    target.moveDir=dir;target.facing=dir;
-    target.hopFromX=target.x;target.hopFromY=target.y;
+    const dir=chosen.dir,d=DIRS[dir];
+    target.alertState='none';target.alertTime=0;target.forcedDir=null;target.forcedHops=0;
+    target.moveDir=dir;target.facing=dir;target.hopFromX=target.x;target.hopFromY=target.y;
     target.hopToX=cellCenterX(cx+d.x*2);target.hopToY=cellCenterY(cy+d.y*2);
-    target.hopProgress=0;target.hopDuration=.82;
-    target.state='hop';target.stateTime=0;
-    target.jumperLeap=true;target.wetFlash=1;
-    return true;
+    target.hopProgress=0;target.hopDuration=.82;target.state='hop';target.stateTime=0;
+    target.jumperLeap=true;target.wetFlash=1;return true;
   }
 
   function releaseSleepPollen(target,kind='water'){
@@ -1037,7 +1284,27 @@
       const nx=shot.x+shot.vx*dt;
       const ny=shot.y+shot.vy*dt;
       const c=cellFromPosition(nx,ny);
-      if(segmentHitsHive(shot.x,shot.y,nx,ny)){
+      if(mazeMode){
+        const from=cellFromPosition(shot.x,shot.y);
+        if((from.x!==c.x||from.y!==c.y) && !mazeHasPassage(from.x,from.y,c.x,c.y)){
+          waterShots.splice(i,1);
+          continue;
+        }
+        const fire=mazeCampfires.get(cellKey(c.x,c.y));
+        if(fire){
+          mazeCampfires.delete(cellKey(c.x,c.y));
+          sfxWaterHit();
+          soundRings.push({x:cellCenterX(c.x),y:cellCenterY(c.y),life:.35,maxLife:.35,steam:true});
+          updateMissDisplay();
+          waterShots.splice(i,1);
+          continue;
+        }
+        const wildHive=segmentHitMazeHive(shot.x,shot.y,nx,ny);
+        if(wildHive){
+          sfxWaterHit();activateMazeHive(wildHive);waterShots.splice(i,1);continue;
+        }
+      }
+      if(!mazeMode && segmentHitsHive(shot.x,shot.y,nx,ny)){
         sfxWaterHit();
         activateHive();
         waterShots.splice(i,1);
@@ -1101,20 +1368,50 @@
     }
   }
 
-  function activateHive(){
-    if(!hiveActive || bees.length) return;
-    hiveShake=.8;
-    const hx=cellCenterX(HIVE_CELL.x), hy=cellCenterY(HIVE_CELL.y)-4;
-    // 3匹1組。少しずつ異なる位置を保ちながら主人公を追う。
+  function spawnBeeSwarm(hx,hy){
+    if(bees.length) return false;
     const slots=[{x:-16,y:-8},{x:15,y:-3},{x:-1,y:14}];
     for(let i=0;i<3;i++){
       bees.push({
-        x:hx+slots[i].x*.25,
-        y:hy+slots[i].y*.25,
-        vx:0,vy:0,phase:Math.random()*Math.PI*2,
-        age:0,mode:'chase',slotX:slots[i].x,slotY:slots[i].y
+        x:hx+slots[i].x*.25,y:hy+slots[i].y*.25,
+        vx:0,vy:0,phase:Math.random()*Math.PI*2,age:0,mode:'chase',slotX:slots[i].x,slotY:slots[i].y
       });
     }
+    return true;
+  }
+
+  function activateHive(){
+    if(!hiveActive || bees.length) return;
+    hiveShake=.8;
+    spawnBeeSwarm(cellCenterX(HIVE_CELL.x),cellCenterY(HIVE_CELL.y)-4);
+  }
+
+  function activateMazeHive(hive){
+    if(!mazeMode || !hive || bees.length) return false;
+    hive.shake=.85;
+    const ok=spawnBeeSwarm(hive.wx,hive.wy-3);
+    if(ok){
+      mazeMessage='ハチが出た！';mazeMessageTimer=1.0;
+      const cfg=mazeDifficultyConfig();
+      hive.timer=cfg.hiveMin+Math.random()*Math.max(.1,cfg.hiveMax-cfg.hiveMin);
+    }
+    return ok;
+  }
+
+  function updateMazeHives(dt){
+    if(!mazeMode || roundState!=='play') return;
+    const cfg=mazeDifficultyConfig();
+    for(const hive of mazeHives){
+      hive.shake=Math.max(0,(hive.shake||0)-dt);
+      hive.timer-=dt;
+      if(hive.timer<=0){
+        if(!bees.length) activateMazeHive(hive);
+        else hive.timer=2.0+Math.random()*2.0;
+      }
+    }
+    netSwing=Math.max(0,netSwing-dt);
+    if(netSwing>0) tryCatchBeesWithNet();
+    mazeMessageTimer=Math.max(0,mazeMessageTimer-dt);
   }
 
   function updateBees(dt){
@@ -1159,6 +1456,70 @@
     const sx=x2-x1,sy=y2-y1,len2=sx*sx+sy*sy||1;
     const t=Math.max(0,Math.min(1,((hx-x1)*sx+(hy-y1)*sy)/len2));
     return Math.hypot(hx-(x1+sx*t),hy-(y1+sy*t))<25;
+  }
+
+  function segmentHitMazeHive(x1,y1,x2,y2){
+    const sx=x2-x1,sy=y2-y1,len2=sx*sx+sy*sy||1;
+    for(const hive of mazeHives){
+      const t=Math.max(0,Math.min(1,((hive.wx-x1)*sx+(hive.wy-y1)*sy)/len2));
+      if(Math.hypot(hive.wx-(x1+sx*t),hive.wy-(y1+sy*t))<17) return hive;
+    }
+    return null;
+  }
+
+  function updateMazeActionUI(){
+    const fireBtn=document.getElementById('firecrackerBtn');
+    const hint=document.getElementById('actionHint');
+    if(mazeMode){
+      if(!mazeNet.active){
+        fireBtn.setAttribute('aria-label','この難易度ではBボタンなし');
+        fireBtn.style.background='#c8c8b8';fireBtn.style.boxShadow='0 6px 0 #777768';
+        hint.innerHTML='A 水鉄砲：J / Space<br>B なし';
+      }else{
+        fireBtn.setAttribute('aria-label','虫取り網');
+        fireBtn.style.background='#79cf72';fireBtn.style.boxShadow='0 6px 0 #3f8841';
+        const status=mazeNet.collected?'使用可・無制限':'迷路で拾う';
+        hint.innerHTML='A 水鉄砲：J / Space<br>B 虫取り網：K（'+status+'）';
+      }
+    }else{
+      fireBtn.setAttribute('aria-label','爆竹');
+      fireBtn.style.background='#ff966f';fireBtn.style.boxShadow='0 6px 0 #a84328';
+      hint.innerHTML='A 水鉄砲：J / Space<br>B 爆竹：K';
+    }
+  }
+
+  function tryCatchBeesWithNet(){
+    if(!mazeMode || !mazeNet.collected || netSwing<=0 || !bees.length) return false;
+    const d=DIRS[player.facing]||DIRS.up;
+    const duration=.42;
+    const t=Math.max(0,Math.min(1,1-netSwing/duration));
+    const base=Math.atan2(d.y,d.x);
+    const ang=base-1.05+t*2.10;
+    const hx=player.x+Math.cos(ang)*34,hy=player.y+Math.sin(ang)*34;
+    // 一瞬だけの判定ではなく、網を振っている約0.4秒の間ずっと捕獲判定。
+    // 網先端の近くに加え、主人公のすぐ近くまで来た蜂も拾えるよう少し寛容にする。
+    const caught=bees.some(b=>Math.hypot(b.x-hx,b.y-hy)<72 || Math.hypot(b.x-player.x,b.y-player.y)<55);
+    if(!caught) return false;
+    bees.length=0;mazeMessage='ハチを捕まえた！';mazeMessageTimer=1.0;
+    tone(760,.10,{type:'sine',endFreq:980,volume:.07});
+    return true;
+  }
+
+  function swingNet(){
+    if(!mazeMode || !running || roundState!=='play' || player.sleepTime>0 || netSwing>0) return;
+    if(!mazeNet.collected){
+      mazeMessage='虫取り網を探そう';mazeMessageTimer=.75;
+      tone(220,.05,{type:'square',endFreq:180,volume:.04});
+      return;
+    }
+    // 一度拾えば、その迷路をクリアするまで何度でも使用できる。
+    netSwing=.42;
+    tone(520,.06,{type:'triangle',endFreq:700,volume:.06});
+    tryCatchBeesWithNet();
+  }
+
+  function useSecondaryAction(){
+    if(mazeMode) swingNet(); else placeFirecracker();
   }
 
   function placeFirecracker(){
@@ -1216,7 +1577,7 @@
       target.alertState='none';target.alertTime=0;target.escapeTime=0;
       target.state='idle';target.stateTime=0;target.idleDuration=0;
     }
-    if(hiveActive && Math.hypot(x-cellCenterX(HIVE_CELL.x),y-cellCenterY(HIVE_CELL.y))<=HIVE_NOISE_RADIUS) activateHive();
+    if(!mazeMode && hiveActive && Math.hypot(x-cellCenterX(HIVE_CELL.x),y-cellCenterY(HIVE_CELL.y))<=HIVE_NOISE_RADIUS) activateHive();
     soundRings.push({x,y,life:.55,maxLife:.55});
   }
 
@@ -1258,7 +1619,7 @@
       }
       return;
     }
-    if(roundState==='allClear') return;
+    if(roundState==='allClear' || roundState==='mazeClear') return;
     scoreMessageTimer=Math.max(0,scoreMessageTimer-dt);
     for(let i=scoreRespawnTimers.length-1;i>=0;i--){
       scoreRespawnTimers[i].time-=dt;
@@ -1296,16 +1657,20 @@
       slime=target;
       updateDetection(dt);
       updateSlime(dt);
-      // 「!!」状態のスライムに触れられたら、1匹目・2匹目を問わず失点。
+      // 「!!」状態で触れられると、本編は失点。迷路ではスタートへ戻される。
       if(slime.alertState==='found' && Math.hypot(slime.x-player.x,slime.y-player.y)<28){
-        triggerLoss(slime,'caught');
-        return;
+        if(mazeMode){
+          resetPlayer();slime.alertState='none';slime.alertTime=0;
+        }else{
+          triggerLoss(slime,'caught');
+          return;
+        }
       }
-      if(slimeReachedAnyCell(slime,ENEMY_VILLAGE_CELLS)){
+      if(!mazeMode && slimeReachedAnyCell(slime,ENEMY_VILLAGE_CELLS)){
         triggerScore(slime);
         continue;
       }
-      if(slimeReachedAnyCell(slime,HOME_VILLAGE_CELLS)){
+      if(!mazeMode && slimeReachedAnyCell(slime,HOME_VILLAGE_CELLS)){
         triggerLoss(slime,'village');
         return;
       }
@@ -1313,6 +1678,7 @@
     updateWater(dt);
     updateFirecrackers(dt);
     updatePollen(dt);
+    updateMazeHives(dt);
     if(updateBees(dt)) return;
     player.sleepTime=Math.max(0,(player.sleepTime||0)-dt);
     if(player.sleepTime>0){player.moveDir=null;player.turnTarget=null;return;}
@@ -1390,10 +1756,25 @@
 
       if(travel>=distanceToBoundary-.002){
         const nextX=cell.x+d.x,nextY=cell.y+d.y;
-        if(!isOpenCell(nextX,nextY)){
-          player.x=centerX;player.y=centerY;player.moveDir=null;break;
+        // 本編はセル判定、迷路はセル間の薄壁接続まで確認する。
+        if(!canLeaveCell(cell.x,cell.y,player.moveDir)){
+          player.x=centerX;player.y=centerY;player.moveDir=null;player.turnTarget=null;break;
         }
         player.x+=d.x*.01;player.y+=d.y*.01;
+      }
+    }
+    if(mazeMode && roundState==='play'){
+      const pc=cellFromPosition(player.x,player.y);
+      if(mazeNet.active && !mazeNet.collected && pc.x===mazeNet.x && pc.y===mazeNet.y){
+        mazeNet.collected=true;mazeNet.uses=Infinity;mazeMessage='虫取り網を手に入れた！ クリアまで無制限';mazeMessageTimer=1.1;
+        tone(660,.08,{type:'sine',endFreq:880,volume:.065});updateMazeActionUI();
+      }
+      if(pc.x===MAZE_GOAL_CELL.x && pc.y===MAZE_GOAL_CELL.y){
+        roundState='mazeClear';roundTimer=0;player.moveDir=null;player.turnTarget=null;
+        Object.keys(keys).forEach(k=>keys[k]=false);pressOrder.length=0;
+        sfxClear();
+        mazeClearDifficulty.textContent='難易度：'+mazeDifficultyConfig().label;
+        mazeClearOverlay.classList.add('show');mazeClearOverlay.setAttribute('aria-hidden','false');
       }
     }
   }
@@ -1434,8 +1815,42 @@
       ctx.fillStyle='#6b3f22';ctx.fillRect(gx-4,gy+1,8,10);
       ctx.restore();
     }
-    drawVillage(ENEMY_VILLAGE_ART_CELL,'#d45445','#a15d16');
-    drawVillage(HOME_VILLAGE_ART_CELL,'#4c8ee8','#315f9e');
+    if(!mazeMode){
+      drawVillage(ENEMY_VILLAGE_ART_CELL,'#d45445','#a15d16');
+      drawVillage(HOME_VILLAGE_ART_CELL,'#4c8ee8','#315f9e');
+    }else{
+      const sx=cellCenterX(MAZE_START_CELL.x),sy=cellCenterY(MAZE_START_CELL.y);
+      const gx=cellCenterX(MAZE_GOAL_CELL.x),gy=cellCenterY(MAZE_GOAL_CELL.y);
+      ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 15px system-ui,sans-serif';
+      ctx.fillStyle='rgba(92,160,255,.25)';ctx.strokeStyle='#315f9e';ctx.lineWidth=4;ctx.beginPath();ctx.arc(sx,sy,18,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#153b75';ctx.fillText('START',sx,sy);
+      ctx.fillStyle='rgba(255,214,78,.34)';ctx.strokeStyle='#a15d16';ctx.beginPath();ctx.arc(gx,gy,18,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#6e4310';ctx.fillText('GOAL',gx,gy);ctx.restore();
+    }
+  }
+
+  function drawMazeWalls(){
+    if(!mazeMode) return;
+    ctx.save();
+    ctx.lineCap='round';ctx.lineJoin='round';
+    function wallLine(x1,y1,x2,y2){
+      // 木柵ではなく、細い生け垣。レール間に収まり、通路面積を奪わない。
+      ctx.strokeStyle='#173c25';ctx.lineWidth=10;
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      ctx.strokeStyle='#3f8f46';ctx.lineWidth=5;
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    }
+    // 外周壁。
+    wallLine(2,2,canvas.width-2,2);wallLine(2,canvas.height-2,canvas.width-2,canvas.height-2);
+    wallLine(2,2,2,canvas.height-2);wallLine(canvas.width-2,2,canvas.width-2,canvas.height-2);
+    // 右・下の境界だけを調べれば各内部壁を1回ずつ描ける。
+    for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+      if(x<COLS-1 && !mazeHasPassage(x,y,x+1,y)){
+        const wx=(x+1)*TILE;wallLine(wx,y*TILE+5,wx,(y+1)*TILE-5);
+      }
+      if(y<ROWS-1 && !mazeHasPassage(x,y,x,y+1)){
+        const wy=(y+1)*TILE;wallLine(x*TILE+5,wy,(x+1)*TILE-5,wy);
+      }
+    }
+    ctx.restore();
   }
 
   function drawCentralGate(){
@@ -1532,6 +1947,40 @@
     ctx.restore();
   }
 
+  function drawMazeHive(hive){
+    const x=hive.wx,y=hive.wy;
+    ctx.save();
+    if(hive.shake>0) ctx.translate(Math.sin(hive.shake*58)*2.3,0);
+    ctx.fillStyle='rgba(0,0,0,.16)';ctx.beginPath();ctx.ellipse(x,y+10,12,4,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#e6a92f';ctx.strokeStyle='#3a2510';ctx.lineWidth=3;
+    ctx.beginPath();ctx.ellipse(x,y,12,15,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.strokeStyle='#9f641d';ctx.lineWidth=2;
+    for(const yy of [-6,0,6]){ctx.beginPath();ctx.moveTo(x-10,y+yy);ctx.quadraticCurveTo(x,y+yy+2,x+10,y+yy);ctx.stroke();}
+    ctx.fillStyle='#2b1a0c';ctx.beginPath();ctx.ellipse(x+4,y+4,3.5,4.5,0,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+
+  function drawMazeNet(){
+    if(!mazeMode || !mazeNet.active || mazeNet.collected) return;
+    const x=cellCenterX(mazeNet.x),y=cellCenterY(mazeNet.y);
+    ctx.save();ctx.translate(x,y);
+    ctx.strokeStyle='#5b3a1d';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-10,15);ctx.lineTo(9,-8);ctx.stroke();
+    ctx.strokeStyle='#222';ctx.lineWidth=3;ctx.fillStyle='rgba(235,250,255,.55)';ctx.beginPath();ctx.ellipse(14,-13,12,9,-.45,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.strokeStyle='rgba(80,110,120,.65)';ctx.lineWidth=1;
+    for(let i=-6;i<=6;i+=4){ctx.beginPath();ctx.moveTo(7+i,-20);ctx.lineTo(18+i,-6);ctx.stroke();}
+    ctx.restore();
+  }
+
+  function drawNetSwing(){
+    if(!mazeMode || netSwing<=0) return;
+    const t=1-netSwing/.42,d=DIRS[player.facing]||DIRS.up;
+    const base=Math.atan2(d.y,d.x);
+    const ang=base-1.0+t*2.0;
+    const hx=player.x+Math.cos(ang)*31,hy=player.y+Math.sin(ang)*31;
+    ctx.save();ctx.strokeStyle='#5b3a1d';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(player.x,player.y+3);ctx.lineTo(hx,hy);ctx.stroke();
+    ctx.translate(hx,hy);ctx.rotate(ang);ctx.fillStyle='rgba(235,250,255,.48)';ctx.strokeStyle='#222';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(10,0,13,9,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();
+  }
+
   function drawBees(){
     if(!bees.length) return;
     let cx=0,cy=0;
@@ -1560,6 +2009,19 @@
       ctx.lineWidth=4;ctx.strokeStyle='rgba(255,255,255,.9)';ctx.fillStyle='#5a3a00';
       ctx.strokeText('ブーン…',cx,cy-24);ctx.fillText('ブーン…',cx,cy-24);ctx.restore();
     }
+  }
+
+  function drawCampfire(fire){
+    const x=cellCenterX(fire.x),y=cellCenterY(fire.y);
+    ctx.save();
+    ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(x,y+17,18,5,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#4e2d15';ctx.lineWidth=6;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(x-12,y+12);ctx.lineTo(x+12,y+4);ctx.moveTo(x-12,y+4);ctx.lineTo(x+12,y+12);ctx.stroke();
+    const flick=Math.sin(performance.now()/90)*2;
+    ctx.fillStyle='#ff6b2c';ctx.strokeStyle='#7a2708';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(x,y+7);ctx.bezierCurveTo(x-14,y-1,x-8,y-18,x,y-23-flick);ctx.bezierCurveTo(x+11,y-12,x+14,y-1,x,y+7);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#ffd84d';ctx.beginPath();ctx.moveTo(x,y+4);ctx.bezierCurveTo(x-7,y-3,x-3,y-12,x+1,y-15);ctx.bezierCurveTo(x+7,y-7,x+7,y-1,x,y+4);ctx.fill();
+    ctx.restore();
   }
 
   function drawGunAt(x,y,direction){
@@ -1923,23 +2385,29 @@
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     drawGround();
+    if(mazeMode) drawMazeWalls();
 
     // 見下ろし型の奥行き表現：足元のY座標で茂みと人を並べ替える。
     // 人より下側の茂みは後から描き、下半身を自然に隠す。
     const layers=[];
     for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
       if(map[y][x]===1){
-        const isVillageArt=(x===ENEMY_VILLAGE_ART_CELL.x&&y===ENEMY_VILLAGE_ART_CELL.y)||
-          (x===HOME_VILLAGE_ART_CELL.x&&y===HOME_VILLAGE_ART_CELL.y);
+        const isVillageArt=!mazeMode && ((x===ENEMY_VILLAGE_ART_CELL.x&&y===ENEMY_VILLAGE_ART_CELL.y)||
+          (x===HOME_VILLAGE_ART_CELL.x&&y===HOME_VILLAGE_ART_CELL.y));
         if(!isVillageArt){
-          if(x===CENTRAL_GATE_CELL.x&&y===CENTRAL_GATE_CELL.y) layers.push({depth:(y+1)*TILE,kind:'gate'});
-          else if(hiveActive && x===HIVE_CELL.x&&y===HIVE_CELL.y) layers.push({depth:(y+1)*TILE,kind:'hive'});
+          if(!mazeMode && x===CENTRAL_GATE_CELL.x&&y===CENTRAL_GATE_CELL.y) layers.push({depth:(y+1)*TILE,kind:'gate'});
+          else if(!mazeMode && hiveActive && x===HIVE_CELL.x&&y===HIVE_CELL.y) layers.push({depth:(y+1)*TILE,kind:'hive'});
           else layers.push({depth:(y+1)*TILE,kind:'bush',x,y});
         }
       }
     }
     for(const shot of waterShots) layers.push({depth:shot.y,kind:'water',shot});
     for(const f of firecrackers) layers.push({depth:f.y+8,kind:'firecracker',f});
+    if(mazeMode){
+      for(const fire of mazeCampfires.values()) layers.push({depth:cellCenterY(fire.y)+18,kind:'campfire',fire});
+      for(const hive of mazeHives) layers.push({depth:hive.wy+14,kind:'mazeHive',hive});
+      if(mazeNet.active && !mazeNet.collected) layers.push({depth:cellCenterY(mazeNet.y)+12,kind:'mazeNet'});
+    }
     layers.push({depth:player.y+19,kind:'player'});
     for(const target of slimes) layers.push({depth:target.y+19,kind:'slime',slime:target});
     for(const target of flowers) layers.push({depth:target.y+18,kind:'flower',flower:target});
@@ -1950,6 +2418,9 @@
       else if(item.kind==='flower') drawFlower(item.flower);
       else if(item.kind==='gate') drawCentralGate();
       else if(item.kind==='hive') drawHive();
+      else if(item.kind==='campfire') drawCampfire(item.fire);
+      else if(item.kind==='mazeHive') drawMazeHive(item.hive);
+      else if(item.kind==='mazeNet') drawMazeNet();
       else if(item.kind==='firecracker'){
         const f=item.f;ctx.save();ctx.translate(f.x,f.y+8);ctx.rotate(Math.sin(f.phase)*.08);ctx.fillStyle='#df4b34';ctx.strokeStyle='#111';ctx.lineWidth=3;roundedRect(-8,-5,16,10,4);ctx.fill();ctx.stroke();ctx.strokeStyle='#70411f';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(5,-5);ctx.quadraticCurveTo(10,-12,12,-8);ctx.stroke();ctx.fillStyle=f.timer<.35?'#fff176':'#ff9d2e';ctx.beginPath();ctx.arc(12,-8,2.5,0,Math.PI*2);ctx.fill();ctx.restore();
       }else if(item.kind==='water'){
@@ -1967,8 +2438,14 @@
     // 以前は未使用の drawFirecrackers() 内からしか呼ばれておらず、
     // 当たり判定だけ動いて蜂が見えない状態になっていた。
     drawBees();
+    drawNetSwing();
+    if(mazeMode && mazeMessageTimer>0 && mazeMessage){
+      ctx.save();ctx.font='900 16px system-ui,sans-serif';ctx.textAlign='center';
+      ctx.lineWidth=5;ctx.strokeStyle='rgba(255,255,255,.95)';ctx.fillStyle='#222';
+      ctx.strokeText(mazeMessage,canvas.width/2,34);ctx.fillText(mazeMessage,canvas.width/2,34);ctx.restore();
+    }
 
-    for(const ring of soundRings){const t=1-ring.life/ring.maxLife;ctx.save();ctx.strokeStyle=`rgba(255,120,55,${1-t})`;ctx.lineWidth=5*(1-t)+1;ctx.beginPath();ctx.arc(ring.x,ring.y,12+t*70,0,Math.PI*2);ctx.stroke();ctx.fillStyle=`rgba(255,255,255,${1-t})`;ctx.font='900 20px system-ui';ctx.textAlign='center';ctx.fillText('パン！',ring.x,ring.y-18-t*10);ctx.restore();}
+    for(const ring of soundRings){const t=1-ring.life/ring.maxLife;ctx.save();if(ring.steam){ctx.strokeStyle=`rgba(220,245,255,${1-t})`;ctx.lineWidth=4*(1-t)+1;ctx.beginPath();ctx.arc(ring.x,ring.y,8+t*28,0,Math.PI*2);ctx.stroke();ctx.fillStyle=`rgba(245,250,255,${1-t})`;ctx.font='900 16px system-ui';ctx.textAlign='center';ctx.fillText('ジュッ',ring.x,ring.y-15-t*8);}else{ctx.strokeStyle=`rgba(255,120,55,${1-t})`;ctx.lineWidth=5*(1-t)+1;ctx.beginPath();ctx.arc(ring.x,ring.y,12+t*70,0,Math.PI*2);ctx.stroke();ctx.fillStyle=`rgba(255,255,255,${1-t})`;ctx.font='900 20px system-ui';ctx.textAlign='center';ctx.fillText('パン！',ring.x,ring.y-18-t*10);}ctx.restore();}
     for(const cloud of pollenClouds){
       const t=1-cloud.life/cloud.maxLife;ctx.save();
       ctx.fillStyle=`rgba(190,145,225,${.22*(1-t)})`;ctx.strokeStyle=`rgba(112,74,160,${.7*(1-t)})`;ctx.lineWidth=3;
@@ -2033,15 +2510,35 @@
     update(dt);draw();requestAnimationFrame(loop);
   }
 
-  function startGame(isCustom=false){
+  function hideMazeMenus(){
+    mazeClearOverlay.classList.remove('show');mazeClearOverlay.setAttribute('aria-hidden','true');
+    mazeDifficultyOverlay.classList.remove('show');mazeDifficultyOverlay.setAttribute('aria-hidden','true');
+  }
+  function beginNewMaze(){
+    if(!mazeMode) return;
+    hideMazeMenus();
+    generateMaze();
+    roundState='play';roundTimer=0;scoreMessageTimer=0;lossReason='village';lossAmount=1;
+    resetPlayer();resetSlime();updateStageDisplay();updateScoreDisplay();updateMissDisplay();updateMazeActionUI();draw();
+  }
+  function chooseMazeDifficulty(diff){
+    if(!MAZE_DIFFICULTIES[diff]) return;
+    mazeDifficulty=diff;
+    beginNewMaze();
+  }
+
+  function startGame(isCustom=false,isMaze=false){
     ensureAudio();
-    customMode=isCustom;
+    hideMazeMenus();
+    customMode=isCustom;mazeMode=isMaze;
+    if(mazeMode) generateMaze(); else buildNormalMap();
     stage=1;scores=0;misses=0;stageStartMisses=0;stageMissRecords.length=0;lossAmount=1;roundState='play';roundTimer=0;lossReason='village';scoreMessageTimer=0;scoreRespawnTimers.length=0;
     updateStageDisplay();updateScoreDisplay();updateMissDisplay();
-    resetPlayer();resetSlime();setScreen('game');running=true;last=performance.now();draw();requestAnimationFrame(loop);
+    resetPlayer();resetSlime();updateMazeActionUI();setScreen('game');running=true;last=performance.now();draw();requestAnimationFrame(loop);
   }
-  function start(){startGame(false);}
-  function stop(){running=false;Object.keys(keys).forEach(k=>keys[k]=false);setScreen('title');}
+  function start(){startGame(false,false);}
+  function startMaze(){mazeDifficulty='normal';startGame(false,true);}
+  function stop(){running=false;hideMazeMenus();Object.keys(keys).forEach(k=>keys[k]=false);setScreen('title');}
 
   function fillSelect(id,values,selected){
     const el=document.getElementById(id);el.innerHTML='';
@@ -2056,8 +2553,14 @@
 
   startBtn.addEventListener('click',start);
   customBtn.addEventListener('click',()=>setScreen('custom'));
+  mazeBtn.addEventListener('click',startMaze);
+  mazeRetryBtn.addEventListener('click',()=>beginNewMaze());
+  mazeDifficultyBtn.addEventListener('click',()=>{mazeClearOverlay.classList.remove('show');mazeDifficultyOverlay.classList.add('show');});
+  mazeDifficultyBackBtn.addEventListener('click',()=>{mazeDifficultyOverlay.classList.remove('show');mazeClearOverlay.classList.add('show');});
+  mazeTitleBtn.addEventListener('click',stop);
+  document.querySelectorAll('.mazeDiffBtn').forEach(btn=>btn.addEventListener('click',()=>chooseMazeDifficulty(btn.dataset.diff)));
   customBackBtn.addEventListener('click',()=>setScreen('title'));
-  customStartBtn.addEventListener('click',()=>{readCustomConfig();startGame(true);});
+  customStartBtn.addEventListener('click',()=>{readCustomConfig();startGame(true,false);});
   backBtn.addEventListener('click',stop);
 
   const keyMap={ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down',ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right'};
@@ -2074,7 +2577,7 @@
     const k=keyMap[e.key];
     if(k){if(!keys[k])pressDirection(k);e.preventDefault();return;}
     if(e.key==='j'||e.key==='J'||e.code==='Space'){if(!e.repeat)fireWater();e.preventDefault();return;}
-    if(e.key==='k'||e.key==='K'){if(!e.repeat)placeFirecracker();e.preventDefault();}
+    if(e.key==='k'||e.key==='K'){if(!e.repeat)useSecondaryAction();e.preventDefault();}
   });
   addEventListener('keyup',e=>{const k=keyMap[e.key];if(k){releaseDirection(k);e.preventDefault();}});
 
@@ -2091,7 +2594,7 @@
   const firecrackerBtn=document.getElementById('firecrackerBtn');
   actionBtn.addEventListener('pointerdown',e=>{e.preventDefault();fireWater();});
   actionBtn.addEventListener('contextmenu',e=>e.preventDefault());
-  firecrackerBtn.addEventListener('pointerdown',e=>{e.preventDefault();placeFirecracker();});
+  firecrackerBtn.addEventListener('pointerdown',e=>{e.preventDefault();useSecondaryAction();});
   firecrackerBtn.addEventListener('contextmenu',e=>e.preventDefault());
 
   document.querySelectorAll('.dir').forEach(btn=>{
